@@ -27,3 +27,7 @@ class Headers{
   final String url;
   const Headers({this.url});
 }
+
+class Root{
+  const Root();
+}

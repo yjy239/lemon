@@ -20,7 +20,10 @@ class CodeGenerator extends GeneratorForAnnotation<Controller> {
 
     ClassElement classElement = element as ClassElement;
 
-    StringBuffer buffer = Writer.writeBegin(classElement);
+    StringBuffer buffer = new StringBuffer();
+    Writer.writeImport(buffer,buildStep,classElement);
+
+    Writer.writeBegin(buffer,classElement);
 
     for(MethodElement method in classElement.methods){
 
@@ -29,25 +32,6 @@ class CodeGenerator extends GeneratorForAnnotation<Controller> {
     }
 
     Writer.writeEnd(buffer);
-
-//      for (MethodElement e in (classElement.methods)) {
-//        print("$e \n");
-//        print("${e.name}");
-//        List<ElementAnnotation> list = e.metadata;
-//        for (ElementAnnotation ann in list) {
-//          var metaData = ann.computeConstantValue();
-//          var type = ann.runtimeType;
-//
-//          if (metaData?.type?.name == "Get") {
-//            String url = metaData.getField("url").toStringValue();
-//            print("Get url:${url}");
-//          } else if (metaData?.type?.name == "Header") {
-//            String url = metaData.getField("url").toStringValue();
-//            print("Header url:${url}");
-//          }
-//        }
-//      }
-//
 
 
     return buffer.toString();

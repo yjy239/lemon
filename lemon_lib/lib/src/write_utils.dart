@@ -3,8 +3,24 @@ import 'package:build/src/builder/build_step.dart';
 import 'package:source_gen/source_gen.dart';
 
 class Writer{
-  static StringBuffer writeBegin(ClassElement element){
-    return new StringBuffer(""" class ${element.name}Impl{ """);
+  static void writeBegin(StringBuffer buffer,ClassElement element){
+     buffer.write(" class ${element.name}Impl extends ${element.name}{\n");
+  }
+
+
+  static void writeImport(StringBuffer buffer,BuildStep buildStep,ClassElement classElement){
+    if (buildStep.inputId.path.contains('lib/')) {
+      buffer.write(
+          "import 'package:${buildStep.inputId.package}/${buildStep.inputId.path.replaceFirst('lib/', '')}';\n");
+    } else {
+      buffer.write("import '${buildStep.inputId.path}';\n");
+    }
+
+    List<ImportElement>  imports = classElement.library.imports;
+    for(ImportElement e in imports){
+      buffer.write("import '${e.uri}';\n");
+    }
+
   }
 
   static void writeMethod(StringBuffer buffer,MethodElement element){
