@@ -1,23 +1,28 @@
 import 'dart:isolate';
 
+import 'package:lemon_lib/src/utils.dart';
+
 import 'engine.dart';
 
 /**
  * isolate Pool 一个异步池子
  */
-class IsolatePool {
-  List<ReceivePort> list = new List();
-}
 
+typedef ResponseCallback<T> = void Function(T object);
 
 class LemonBuilder{
 
   InterfaceFactory mInterfaceFactory;
   EngineFactory mEngineFactory;
+  int maxSize;
 
   //设置接口查询器
   LemonBuilder(InterfaceFactory factory){
     this.mInterfaceFactory = factory;
+  }
+
+  LemonBuilder setIsolatePoolMaxSize(int maxSize){
+    this.maxSize = maxSize;
   }
 
 
@@ -28,7 +33,8 @@ class LemonBuilder{
   }
 
   Lemon build(){
-    return new Lemon();
+    return Lemon(maxSize,mInterfaceFactory,
+        mEngineFactory);
   }
 }
 
@@ -37,11 +43,14 @@ class LemonBuilder{
 class Lemon{
   InterfaceFactory _mInterfaceFactory;
   EngineFactory _mEngineFactory;
+  int _maxSize;
 
-  _Lemon(InterfaceFactory interfaceFactory,
+
+  Lemon(int maxSize,InterfaceFactory interfaceFactory,
       EngineFactory engineFactory){
     this._mInterfaceFactory = interfaceFactory;
     this._mEngineFactory = engineFactory;
+    this._maxSize = maxSize;
   }
 
   T create<T>(T interface){
