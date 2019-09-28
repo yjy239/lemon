@@ -1,21 +1,45 @@
 import 'dart:isolate';
+import 'dart:math';
 
 import 'package:lemon_lib/lemon.dart';
 
-import 'IsolateExecutor.dart';
+import 'isolate_executor.dart';
+
+typedef OnExecute = dynamic Function();
+
+typedef OnError = void Function(Exception e);
 
 
 //这个用来生成
 class AsyncCall extends Runnable{
   String host;
   String url;
-  dynamic data;
-  Map<String, dynamic> queryParameters;
-  Options options;
+
+  Runnable runnable;
+
+  AsyncCall(Runnable runnable){
+    this.runnable = runnable;
+  }
 
   @override
-  void onRun() {
+  dynamic onRun() async {
+   return await runnable.onRun();
+  }
 
+  @override
+  void close() {
+    // TODO: implement close
+  }
+
+  @override
+  void init() {
+    // TODO: implement init
+  }
+
+  @override
+  void callback(data) {
+    // TODO: implement callback
+    print("${data}");
   }
 
   @override
@@ -31,33 +55,27 @@ class AsyncCall extends Runnable{
   }
 }
 
-class IsolateDispatcher{
+class Dispatcher{
   ///核心isolate池子为3
   IsolateExecutor _executor;
-  List<AsyncCall> readyCalls;
-  List<AsyncCall> runningCalls;
+  List<AsyncCall> readyCalls = new List();
+  List<AsyncCall> runningCalls = new List();
   int maxRequest = 64;
   int maxRequestsPerHost = 5;
 
-  static IsolateDispatcher _controller;
 
-  factory IsolateDispatcher(int maxSize){
-    if(_controller == null){
-      _controller = IsolateDispatcher(maxSize);
-    }
-
-
-    return _controller;
-  }
-
-  IsolateDispatcher._internal(int maxSize){
+  ///从源码可以看到，每一个HttpClient带着多个socket，每一个Socket存活时间默认为15秒
+  ///太多socket会导致线程过于繁重，加上Isolate除了生成线程之外会带着Heap，不建议生成多个实例
+  Dispatcher({int corePoolSize,
+    int maxSize,Duration keepAliveTime}){
     _executor = new IsolateExecutor(maximumPoolSize: maxSize,
-       keepAliveTime: Duration(minutes: 5),corePoolSize: 3);
+       keepAliveTime: keepAliveTime,corePoolSize: corePoolSize);
   }
+
 
 
   int runningCallsForHost(AsyncCall call){
-    int result;
+    int result = 0;
     for(AsyncCall c in runningCalls){
       if(c.host == call.host){
         result++;
@@ -68,8 +86,10 @@ class IsolateDispatcher{
   }
 
 
-  //
-  void enqueue<T>(AsyncCall call){
+
+
+  void enqueue<T>(Runnable runnable){
+    AsyncCall call = new AsyncCall(runnable);
     if(runningCalls.length < maxRequest
         &&runningCallsForHost(call)<maxRequestsPerHost){
       runningCalls.add(call);

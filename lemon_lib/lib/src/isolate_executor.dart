@@ -60,8 +60,11 @@ class Pools<P>{
 //typedef onRun = void Function();
 
 
-abstract class Runnable{
-  void onRun();
+abstract class Runnable {
+  void init();
+  dynamic onRun();
+  void close();
+  void callback(dynamic data);
 }
 
 abstract class RejectHandler{
@@ -71,13 +74,13 @@ abstract class RejectHandler{
 
 ///Isolate 池子
 class IsolateExecutor{
-  int corePoolSize;
-  int maximumPoolSize;
+  int corePoolSize = 3;
+  int maximumPoolSize = 10;
   Duration keepAliveTime = Duration(minutes: 5);
   RejectHandler handler;
   int state = ctlOf(RUNNING,0);
 
-  Queue<Runnable> _workQueue = new Queue();
+  DoubleLinkedQueue<Runnable> _workQueue = new DoubleLinkedQueue();
   ///思想：最高三位 30 31 32控制状态，29位以下控制数量
   ///思想和android的measure很相似
   static final int COUNT_BITS = 32 - 3;
@@ -106,6 +109,15 @@ class IsolateExecutor{
     return c < s;
   }
 
+  addWorkCount(int count){
+    state = ctlOf(runStateOf(state),count+1);
+  }
+
+  decrementWorkCount(int count){
+    state = ctlOf(runStateOf(state),count-1);
+  }
+
+
   static bool runStateAtLeast(int c, int s) {
     return c >= s;
   }
@@ -114,36 +126,46 @@ class IsolateExecutor{
   }
 
 
-  Set<_Worker> workers = new Set();
+  List<_Worker> workers = new List();
 
-  IsolateExecutor({this.corePoolSize,
-    this.maximumPoolSize,this.keepAliveTime,this.handler});
+  IsolateExecutor({this.corePoolSize :3,
+    this.maximumPoolSize:5,this.keepAliveTime:const Duration(minutes: 5),
+    this.handler}){
+    cleanUp();
+  }
 
+
+  ///因为是单线程，不能通过阻塞队列循环，可以换一种方式。
 
   bool addWorker(Runnable run,bool isCore)  {
     int currentState = runStateOf(state);
-    if(currentState >= SHUTDOWN ){
+    if(currentState >= SHUTDOWN){
       return false;
     }
 
+    int count = workerCountOf(state);
     ///寻找一样的空闲work
-    _Worker _worker = findSameIdleWork(run,this);
+    _Worker _worker = new _Worker(run,this);
     workers.add(_worker);
+
+    addWorkCount(count);
+    print("after add:${workerCountOf(state)}");
     _worker.isRunning = true;
     _worker.execute();
 
     return true;
   }
 
-  _Worker findSameIdleWork(Runnable run,IsolateExecutor executor){
-    for(_Worker w in workers){
-      if(w.run == run&&!w.isRunning){
-        return w;
-      }
-    }
-
-    return new _Worker(run,executor);
-  }
+//  _Worker findSameIdleWork(Runnable run,IsolateExecutor executor){
+//    for(_Worker w in workers){
+//      if(w.run == run&&!w.isRunning){
+//        w.run = run;
+//        return w;
+//      }
+//    }
+//
+//    return new _Worker(run,executor);
+//  }
 
   void reject(Runnable runnable){
     handler?.onHandle(this, runnable);
@@ -151,6 +173,12 @@ class IsolateExecutor{
 
   void execute(Runnable run) {
     //当小于核心Isolate则直接添加到worker中
+    ///最好去先寻找寻找空闲的线程
+
+    if(findIdleToRun(run)){
+      return;
+    }
+
     if(workerCountOf(state) < corePoolSize){
       ///添加成功则返回
       if(addWorker(run, true)){
@@ -164,43 +192,69 @@ class IsolateExecutor{
     }else{
       reject(run);
     }
-    //启动检测
-    cleanUp();
+
   }
 
-  void submit(_Worker _worker){
+  bool findIdleToRun(Runnable run){
+
+    if(workers.isNotEmpty){
+      _Worker preWork;
+      for(int i = 0;i< workers.length;i++){
+        _Worker _worker = workers[i];
+        if(!_worker.isRunning
+            &&!_worker.isShutdown){
+          if(run == _worker.run){
+            _worker.run = run;
+            _worker.execute();
+            return true;
+          }else{
+            preWork = _worker;
+          }
+        }
+      }
+
+      if(preWork!=null){
+        preWork.run = run;
+        preWork.execute();
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  void runIdle(_Worker _worker){
     if(_workQueue.isNotEmpty){
       Runnable runnable = _workQueue.first;
+      _workQueue.removeFirst();
       _worker.isRunning = true;
       _worker.executeTask(runnable);
     }
 
   }
 
-  void showdown() async* {
+  shutdown() {
     for(_Worker w in workers){
-      await w.release();
+      w.release();
     }
     workers.clear();
     _workQueue.clear();
-    ctlOf(TERMINATED, 0);
+    state = ctlOf(TERMINATED, 0);
   }
 
 
   //为了解决内存泄漏的问题，没5分钟检查一下所有的Isolate是否过期
   cleanUp() => Future.delayed(keepAliveTime,(){
     //每间隔一段时间，判断是否空闲
-    if(runStateOf(state) == SHUTDOWN){
+    if(runStateOf(state) >= SHUTDOWN){
       return;
     }
-     Iterator<_Worker> it =  workers.iterator;
-     while(it.moveNext()){
-       if(!it.current.isRunning){
-         it.current.release();
-         workers.remove(it.current);
-       }
-
-     }
+    workers.removeWhere((element){
+      if(!element.isRunning){
+        element.release();
+      }
+      return !element.isRunning;
+    });
 
      cleanUp();
     });
@@ -218,6 +272,7 @@ class _Worker{
   SendPort _port;
   ReceivePort receivePort;
   bool isRunning = false;
+  bool isShutdown = false;
   IsolateExecutor _executor;
 
   _Worker(Runnable run,IsolateExecutor executor){
@@ -234,26 +289,39 @@ class _Worker{
     if(receivePort == null||_port == null){
       _Isolate?.kill(priority: Isolate.immediate);
       receivePort = new ReceivePort();
-      ///数据传输在底层会进行一次类似序列化和反序列化的工作，保证了对象唯一
+      ///数据传输在底层会进行一次类似序列化和反序列化的工作，保证了对象完整，
+      ///但是sendPort特殊处理，本质上是native层上的对象
       _Isolate = await Isolate.spawn(Binder.ping, [PING,receivePort.sendPort]);
       receivePort.listen(onReceive,onDone: done);
+
     }else{
-      _port.send([TRANSACTION,run]);
+      await _port.send([TRANSACTION,run]);
     }
 
   }
 
-  void onReceive(dynamic data){
+
+
+  void onReceive(dynamic data) async{
     ///判断是不是List的数据
     if(data is List){
       List transaction = data as List;
       switch(transaction[0]){
         case PING_REPLY:
           _port = transaction[1];
+          await _port.send([TRANSACTION,run]);
           break;
         case TRANSACTION_REPLY:
           isRunning = false;
-          _executor.submit(this);
+          data = transaction[1];
+          run.callback(data);
+          _executor.runIdle(this);
+          break;
+        case CLOSE_REPLY:
+          _port = null;
+          receivePort = null;
+          _Isolate = null;
+          isShutdown = true;
           break;
 
 
@@ -266,12 +334,12 @@ class _Worker{
   }
 
   release() async {
-    _port.send([CLOSE]);
+    if(isShutdown){
+      return;
+    }
+    await _port?.send([CLOSE,run]);
     receivePort?.close();
     _Isolate?.kill(priority: Isolate.immediate);
-    _port = null;
-    receivePort = null;
-    _Isolate = null;
   }
 
 
@@ -304,20 +372,20 @@ class Binder{
 
   }
 
-  static void ioctl(dynamic data){
+  static  ioctl(dynamic data) async {
     if(data is List){
       List transaction = data as List;
       if(transaction.isEmpty||transaction.length <= 1){
         return;
       }
-      parseTransaction(transaction);
+      await parseTransaction(transaction);
     }else{
       throw Exception("ioctl must be List");
     }
   }
 
 
-  static void parseTransaction(List transaction){
+  static  parseTransaction(List transaction) async{
     switch(transaction[0]){
       case PING:
         sendPort = transaction[1];
@@ -328,16 +396,23 @@ class Binder{
 
       case TRANSACTION:
         Runnable r =  transaction[1] as Runnable;
-        r.onRun();
-        sendPort?.send([TRANSACTION_REPLY]);
+        r.init();
+        print("after init");
+        dynamic data = await r.onRun();
+        print("after run:${data}");
+        sendPort?.send([TRANSACTION_REPLY,data]);
         if(sendPort == null){
           throw Exception("sendPort is null ,please ping to sure");
         }
         break;
 
-      case CLOSE_REPLY:
+      case CLOSE:
+        Runnable r =  transaction[1] as Runnable;
+        r.close();
+        sendPort.send([CLOSE_REPLY]);
         sendPort = null;
         receivePort = null;
+
         break;
     }
   }

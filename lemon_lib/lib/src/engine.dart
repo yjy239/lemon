@@ -1,3 +1,5 @@
+import 'package:lemon_lib/src/dispatcher.dart';
+
 import 'lemon_core.dart';
 import 'options.dart';
 
@@ -14,7 +16,7 @@ abstract class EngineFactory{
 }
 
 abstract class InterfaceFactory{
-  T findInterface<T>(Lemon lemon,T apiService);
+  T findInterface<T>(Dispatcher dispatcher,Engine engine,T apiService);
 }
 
 
