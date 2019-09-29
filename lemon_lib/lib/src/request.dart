@@ -1,8 +1,6 @@
+import 'dart:io';
+
 import 'http_url.dart';
-
-class Headers{
-
-}
 
 
 class Extra{
@@ -11,9 +9,9 @@ class Extra{
 
 
 class Request{
-   HttpUrl url;
+   Uri url;
    String method;
-   Headers headers;
+   HttpHeaders headers;
    dynamic body;
    Extra extra;
 

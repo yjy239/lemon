@@ -7,7 +7,7 @@ class DefaultEngine implements Engine{
   data, Map<String, dynamic> queryParameters, CancelToken cancelToken,
   Options options, ProgressCallback onSendProgress,
   ProgressCallback onReceiveProgress}){
-
+    Dio dio = new Dio();
   }
 
   @override

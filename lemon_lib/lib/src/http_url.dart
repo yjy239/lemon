@@ -18,12 +18,6 @@ class HttpUrl{
   /** Either "http" or "https". */
   String scheme;
 
-  /** Decoded username. */
-  String username;
-
-  /** Decoded password. */
-  String password;
-
   /** Canonical hostname. */
   String host;
 
