@@ -1,14 +1,18 @@
-import 'package:lemon_lib/src/dispatcher.dart';
+import 'package:dio/dio.dart';
 
 import 'lemon_core.dart';
-import 'options.dart';
+
 
 abstract class Engine{
-  Future<T> request<T>(String path,{
-    data,
-    Map<String, dynamic> queryParameters,
-    Options options,
-  });
+  Future<T> request<T>(String path, {
+  data,
+  Map<String, dynamic> queryParameters,
+      CancelToken cancelToken,
+  Options options,
+      ProgressCallback onSendProgress,
+  ProgressCallback onReceiveProgress});
+
+  void close();
 }
 
 abstract class EngineFactory{
@@ -16,7 +20,7 @@ abstract class EngineFactory{
 }
 
 abstract class InterfaceFactory{
-  T findInterface<T>(Dispatcher dispatcher,Engine engine,T apiService);
+  T findInterface<T>(LemonClient client,T apiService);
 }
 
 

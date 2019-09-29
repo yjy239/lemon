@@ -1,14 +1,10 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:isolate';
 
+import 'package:dio/dio.dart';
 import 'package:lemon_lib/lemon.dart';
-import 'package:lemon_lib/src/dispatcher.dart';
 import 'package:lemon_lib/src/isolate_executor.dart';
 
 void main() async {
-
-
 
   DioEngineFactory factory = new DioEngineFactory();
 
@@ -19,8 +15,25 @@ void main() async {
 //  engine.request("www.baidu.com");
 
   Test test = lemon.create(new Test());
+//
+ test.setUser("name");
 
-  test.setUser("name");
+// String response = await test.setUserId(11);
+// print("response:${response}");
+//
+//  String response1 = await test.setUserId(11);
+//  print("response1:${response1}");
+//
+//
+//  String response2 = await test.setUserId(11);
+//  print("response2:${response2}");
+//
+//  String response3 = await test.setUserId(11);
+//  print("response3:${response3}");
+//  String response4 = await test.setUserId(11);
+//  print("response4:${response4}");
+//  String response5 = await test.setUserId(11);
+//  print("response5:${response4}");
 
 
 //  print("result:${result}");
@@ -28,9 +41,9 @@ void main() async {
 }
 
 class TestFactory extends InterfaceFactory{
-  T findInterface<T>(Dispatcher dispatcher,Engine engine,T apiService){
+  T findInterface<T>(LemonClient client,T apiService){
     if(apiService is Test){
-      return new TestImpl(dispatcher,engine) as T;
+      return new TestImpl(client) as T;
     }
   }
 }
@@ -40,28 +53,57 @@ class Test{
   void setUser(String name){
 
   }
+
+  Future<String> setUserId(int id){
+
+  }
 }
 
-class TestImpl extends Test{
+class TestImpl implements Test{
 
-  Engine engine;
-  Dispatcher dispatcher;
+  LemonClient client;
 
-  TestImpl(Dispatcher dispatcher,Engine engine){
-    this.engine = engine;
-    this.dispatcher = dispatcher;
+  TestImpl(LemonClient client){
+    this.client = client;
   }
 
   void setUser(String name) async {
-    dispatcher.enqueue(new ExecuteRunnable(engine));
+//    dispatcher.enqueue(new ExecuteRunnable(engine,p));
+  client.newCall(null).enqueue(execute,response:response,error:error);
+  client.newCall(null).enqueue(execute,response:response,error:error);
   }
+
+
+  Future<String> setUserId(int id){
+    return client.newCall(null).enqueueFuture();
+  }
+
+  static dynamic execute(Engine engine) async {
+    return await engine.request("www.baidu.com");
+  }
+
+  static response(dynamic data){
+    print("${data}");
+  }
+
+  static error(Exception e){
+    print(e);
+  }
+
 }
+
+class Action{
+
+}
+
 
 class ExecuteRunnable extends Runnable{
 
   Engine engine;
-  ExecuteRunnable(Engine engine){
+  Function function;
+  ExecuteRunnable(Engine engine,Function function){
     this.engine = engine;
+    this.function = function;
   }
 
   @override
@@ -72,6 +114,7 @@ class ExecuteRunnable extends Runnable{
   @override
   Future<String> onRun() async {
     // TODO: implement onRun
+    function();
     String result = await engine.request("www.baidu.com");
     print("result:${result}");
     return result;
@@ -103,28 +146,23 @@ class DioEngineFactory extends EngineFactory{
 
 class DioEngine extends Engine{
   @override
-  Future<T> request<T>(String path, {data, Map<String,dynamic> queryParameters, Options options}) {
+  Future<T> request<T>(String path, {
+  data,
+  Map<String, dynamic> queryParameters,
+      CancelToken cancelToken,
+  Options options,
+      ProgressCallback onSendProgress,
+  ProgressCallback onReceiveProgress}) {
     // TODO: implement request
     print("request");
 
-    StreamController controller = new StreamController();
-    controller.sink.add(123);
-    controller.add(345);
 
-    var streamTransformer = StreamTransformer.fromHandlers(handleData: (value,sink){
-      if(value == 123){
-        sink.add("true");
-      }
-    });
-    controller.stream.
-    transform(streamTransformer).listen((data){
-      print("data:${data}");
-    });
+    return Future.delayed(Duration(seconds: 3),() => "success") as Future<T>;
 
-    Future<String> f =  Future.delayed(Duration(seconds: 3),() => "success");
+  }
 
-
-    return f as Future<T>;
-
+  @override
+  void close() {
+    // TODO: implement close
   }
 }

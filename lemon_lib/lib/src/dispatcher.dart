@@ -1,35 +1,31 @@
-import 'dart:isolate';
-import 'dart:math';
+import 'dart:io';
 
 import 'package:lemon_lib/lemon.dart';
 
 import 'isolate_executor.dart';
 
-typedef OnExecute = dynamic Function();
-
-typedef OnError = void Function(Exception e);
 
 
 //这个用来生成
 class AsyncCall extends Runnable{
+
+  Engine engine;
+  OnResponse response;
+  OnError error;
+  OnExecute execute;
+  OnEnd end;
+  HttpRequest request;
   String host;
   String url;
 
-  Runnable runnable;
-
-  AsyncCall(Runnable runnable){
-    this.runnable = runnable;
-  }
-
-  @override
-  dynamic onRun() async {
-   return await runnable.onRun();
-  }
-
-  @override
-  void close() {
-    // TODO: implement close
-  }
+  AsyncCall(
+      this.engine,
+      this.request,
+      this.execute,
+      this.response,
+      this.error,
+      this.end
+      );
 
   @override
   void init() {
@@ -37,9 +33,45 @@ class AsyncCall extends Runnable{
   }
 
   @override
+  dynamic onRun() async {
+    // TODO: implement onRun
+    if(execute != null){
+      try{
+        return await execute(engine);
+      }catch(e){
+        return e;
+      }
+
+    }
+    return null;
+  }
+
+
+  @override
   void callback(data) {
     // TODO: implement callback
-    print("${data}");
+    if(data is Exception){
+      if(error != null){
+        error(data);
+      }
+
+    } else {
+      if(response != null){
+        response(data);
+      }
+    }
+
+    if(end != null){
+      end(this);
+    }
+
+
+  }
+
+  @override
+  void close() {
+    // TODO: implement close
+    engine?.close();
   }
 
   @override
@@ -66,8 +98,8 @@ class Dispatcher{
 
   ///从源码可以看到，每一个HttpClient带着多个socket，每一个Socket存活时间默认为15秒
   ///太多socket会导致线程过于繁重，加上Isolate除了生成线程之外会带着Heap，不建议生成多个实例
-  Dispatcher({int corePoolSize,
-    int maxSize,Duration keepAliveTime}){
+  Dispatcher({int corePoolSize : 3,
+    int maxSize : 5,Duration keepAliveTime : const Duration(seconds: 15)}){
     _executor = new IsolateExecutor(maximumPoolSize: maxSize,
        keepAliveTime: keepAliveTime,corePoolSize: corePoolSize);
   }
@@ -88,8 +120,7 @@ class Dispatcher{
 
 
 
-  void enqueue<T>(Runnable runnable){
-    AsyncCall call = new AsyncCall(runnable);
+  void enqueue<T>(AsyncCall call){
     if(runningCalls.length < maxRequest
         &&runningCallsForHost(call)<maxRequestsPerHost){
       runningCalls.add(call);
@@ -97,11 +128,44 @@ class Dispatcher{
     }else{
       readyCalls.add(call);
     }
+  }
 
+  void execute(AsyncCall call) {
+    if(runningCalls.length < maxRequest
+        &&runningCallsForHost(call)<maxRequestsPerHost){
+      runningCalls.add(call);
+    }else{
+      readyCalls.add(call);
+    }
+  }
+
+  void executeSyncCall(AsyncCall call) async {
+    call?.init();
+    dynamic data =  await call?.onRun();
+    call?.callback(data);
   }
 
   void finish(AsyncCall call){
     runningCalls.remove(call);
+    AsyncCall next = tryToFindSameHostCall(call);
+    if(next != null){
+      _executor.execute(next);
+    }
+  }
+
+  AsyncCall tryToFindSameHostCall(AsyncCall call){
+    AsyncCall prepare;
+    for(int i = readyCalls.length - 1;i>=0;i--){
+      AsyncCall c = readyCalls[i];
+      if(c?.host == call?.host){
+        return c;
+      }else{
+        prepare = c;
+      }
+    }
+
+
+    return prepare;
   }
 
 

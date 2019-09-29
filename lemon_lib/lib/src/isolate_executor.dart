@@ -21,7 +21,6 @@ class Pools<P>{
       P instance = _mPool[lastIndex];
       _mPool[lastIndex] = null;
       _mPoolSize--;
-
       return instance;
     }
 
@@ -149,8 +148,6 @@ class IsolateExecutor{
     workers.add(_worker);
 
     addWorkCount(count);
-    print("after add:${workerCountOf(state)}");
-    _worker.isRunning = true;
     _worker.execute();
 
     return true;
@@ -227,7 +224,7 @@ class IsolateExecutor{
     if(_workQueue.isNotEmpty){
       Runnable runnable = _workQueue.first;
       _workQueue.removeFirst();
-      _worker.isRunning = true;
+
       _worker.executeTask(runnable);
     }
 
@@ -281,11 +278,13 @@ class _Worker{
   }
 
   executeTask(Runnable runnable){
-    _port?.send([TRANSACTION,run]);
+    isRunning = true;
+    _port?.send([TRANSACTION,runnable]);
   }
 
   /// 数据构成 由命令+数据构成
   execute() async{
+    isRunning = true;
     if(receivePort == null||_port == null){
       _Isolate?.kill(priority: Isolate.immediate);
       receivePort = new ReceivePort();
@@ -293,9 +292,8 @@ class _Worker{
       ///但是sendPort特殊处理，本质上是native层上的对象
       _Isolate = await Isolate.spawn(Binder.ping, [PING,receivePort.sendPort]);
       receivePort.listen(onReceive,onDone: done);
-
     }else{
-      await _port.send([TRANSACTION,run]);
+      _port.send([TRANSACTION,run]);
     }
 
   }
@@ -309,7 +307,7 @@ class _Worker{
       switch(transaction[0]){
         case PING_REPLY:
           _port = transaction[1];
-          await _port.send([TRANSACTION,run]);
+          _port.send([TRANSACTION,run]);
           break;
         case TRANSACTION_REPLY:
           isRunning = false;
@@ -323,8 +321,6 @@ class _Worker{
           _Isolate = null;
           isShutdown = true;
           break;
-
-
       }
     }
   }
@@ -334,10 +330,10 @@ class _Worker{
   }
 
   release() async {
-    if(isShutdown){
+    if(isShutdown||isRunning){
       return;
     }
-    await _port?.send([CLOSE,run]);
+    _port?.send([CLOSE,run]);
     receivePort?.close();
     _Isolate?.kill(priority: Isolate.immediate);
   }
@@ -397,9 +393,7 @@ class Binder{
       case TRANSACTION:
         Runnable r =  transaction[1] as Runnable;
         r.init();
-        print("after init");
-        dynamic data = await r.onRun();
-        print("after run:${data}");
+        dynamic data = await r?.onRun();
         sendPort?.send([TRANSACTION_REPLY,data]);
         if(sendPort == null){
           throw Exception("sendPort is null ,please ping to sure");
