@@ -1,16 +1,11 @@
 import 'package:dio/dio.dart';
+import 'package:lemon_lib/src/request.dart';
 
 import 'lemon_core.dart';
 
 
 abstract class Engine{
-  Future<T> request<T>(String path, {
-  data,
-  Map<String, dynamic> queryParameters,
-      CancelToken cancelToken,
-  Options options,
-      ProgressCallback onSendProgress,
-  ProgressCallback onReceiveProgress});
+  Future<R> request<T,R>(Request request);
 
   void close();
 }

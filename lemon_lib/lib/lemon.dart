@@ -1,5 +1,6 @@
 library lemon_lib;
 
-export 'src/annonation.dart';
+export 'src/annontation/annotation.dart';
 export 'src/engine.dart';
 export 'src/lemon_core.dart';
+export 'src/request.dart';

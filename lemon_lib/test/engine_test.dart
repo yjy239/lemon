@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:lemon_lib/lemon.dart';
+import 'package:lemon_lib/src/default_engine.dart';
 import 'package:lemon_lib/src/isolate_executor.dart';
+import 'package:lemon_lib/src/request.dart';
 
 void main() async {
 
-  DioEngineFactory factory = new DioEngineFactory();
+  EngineFactory factory = new DefaultEngineFactory();
 
   Lemon lemon = new LemonBuilder(new TestFactory())
   .setEngine(factory)
@@ -16,11 +18,11 @@ void main() async {
 
   Test test = lemon.create(new Test());
 //
- test.setUser("name");
+// test.setUser("name");
 
-// String response = await test.setUserId(11);
-// print("response:${response}");
-//
+ Response response = await test.setUserId(11);
+ print("response:${response}");
+
 //  String response1 = await test.setUserId(11);
 //  print("response1:${response1}");
 //
@@ -50,11 +52,13 @@ class TestFactory extends InterfaceFactory{
 
 
 class Test{
-  void setUser(String name){
+  @GET(url:"www.baidu.com/{name}")
+  void setUser(@Path("name")String name){
 
   }
 
-  Future<String> setUserId(int id){
+  @GET(url:"www.baidu.com/{id}")
+  Future<Response> setUserId(@Path("id")int id){
 
   }
 }
@@ -70,16 +74,19 @@ class TestImpl implements Test{
   void setUser(String name) async {
 //    dispatcher.enqueue(new ExecuteRunnable(engine,p));
   client.newCall(null).enqueue(execute,response:response,error:error);
-  client.newCall(null).enqueue(execute,response:response,error:error);
+
   }
 
 
-  Future<String> setUserId(int id){
-    return client.newCall(null).enqueueFuture();
+  Future<Response> setUserId(int id){
+    HttpUrl url = new HttpUrl().host("www.baidu.com").scheme("http");
+    print("${url.build()}");
+    Request request = new Request().get().uri(url);
+    return client.newCall(request).enqueueFuture();
   }
 
-  static dynamic execute(Engine engine) async {
-    return await engine.request("www.baidu.com");
+  static dynamic execute(Engine engine,Request request) async {
+    return await engine.request(request);
   }
 
   static response(dynamic data){
@@ -115,7 +122,7 @@ class ExecuteRunnable extends Runnable{
   Future<String> onRun() async {
     // TODO: implement onRun
     function();
-    String result = await engine.request("www.baidu.com");
+    String result = await engine.request(new Request());
     print("result:${result}");
     return result;
   }
@@ -134,30 +141,24 @@ class ExecuteRunnable extends Runnable{
 }
 
 
-class DioEngineFactory extends EngineFactory{
+class SampleEngineFactory extends EngineFactory{
 
   @override
   Engine createEngine() {
     // TODO: implement createEngine
-    return new DioEngine();
+    return new SampleEngine();
   }
 }
 
 
-class DioEngine extends Engine{
+class SampleEngine extends Engine{
   @override
-  Future<T> request<T>(String path, {
-  data,
-  Map<String, dynamic> queryParameters,
-      CancelToken cancelToken,
-  Options options,
-      ProgressCallback onSendProgress,
-  ProgressCallback onReceiveProgress}) {
+  Future<R> request<T,R>(Request request) {
     // TODO: implement request
     print("request");
 
 
-    return Future.delayed(Duration(seconds: 3),() => "success") as Future<T>;
+    return Future.delayed(Duration(seconds: 3),() => "success") as Future<R>;
 
   }
 

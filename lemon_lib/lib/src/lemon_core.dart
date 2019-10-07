@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:lemon_lib/src/dispatcher.dart';
 import 'package:lemon_lib/src/isolate_executor.dart';
+import 'package:lemon_lib/src/request.dart';
 
 import 'engine.dart';
 
@@ -12,7 +13,7 @@ import 'engine.dart';
 
 typedef OnResponse<T> =  void Function(T object);
 typedef OnError<T> = void Function(Exception e);
-typedef OnExecute<T> = dynamic Function(Engine engine);
+typedef OnExecute<T> = dynamic Function(Engine engine,Request request);
 typedef OnEnd<T> = dynamic Function(AsyncCall call);
 
 class LemonBuilder{
@@ -81,39 +82,34 @@ abstract class Lemon{
   T create<T>(T interface);
 }
 
- class Call{
+class Call{
   OnResponse response;
   OnError error;
   static LemonClient lemonClient;
   static Completer completer;
 
-  HttpRequest request;
+  Request request;
 
-  Call.newRealCall(LemonClient client,HttpRequest request){
+  Call.newRealCall(LemonClient client,Request request){
     lemonClient = client;
     this.request = request;
   }
 
 
   void enqueue(OnExecute execute,{OnResponse response,OnError error}){
-    if(lemonClient == null){
-      throw Exception("Call has been disposed");
-    }
     lemonClient.dispatcher.enqueue(new AsyncCall(lemonClient?.engine,request,execute,response,error,onEnd));
   }
 
   Future<T> enqueueFuture<T>(){
-    if(lemonClient == null){
-      throw Exception("Call has been disposed");
-    }
     completer = new Completer<T>();
-    lemonClient.dispatcher.enqueue(new AsyncCall(lemonClient?.engine,request,innerExecute,innerResponse,innerError,onEnd));
+    lemonClient.dispatcher.enqueue(new AsyncCall(lemonClient?.engine,
+        request,innerExecute,innerResponse,innerError,onEnd));
     return completer.future as Future<T>;
 
   }
 
-  static dynamic innerExecute(Engine engine) async{
-    return await engine.request("test");
+  static dynamic innerExecute(Engine engine,Request request) async{
+    return await engine.request(request);
   }
 
   static void innerResponse(dynamic data){
@@ -157,7 +153,7 @@ class LemonClient{
   }
 
 
-  Call newCall(HttpRequest request){
+  Call newCall(Request request){
     return Call.newRealCall(this,request);
   }
 

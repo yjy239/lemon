@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:lemon_lib/lemon.dart';
+import 'package:lemon_lib/src/request.dart';
 
 import 'isolate_executor.dart';
 
@@ -14,7 +15,7 @@ class AsyncCall extends Runnable{
   OnError error;
   OnExecute execute;
   OnEnd end;
-  HttpRequest request;
+  Request request;
   String host;
   String url;
 
@@ -37,8 +38,10 @@ class AsyncCall extends Runnable{
     // TODO: implement onRun
     if(execute != null){
       try{
-        return await execute(engine);
-      }catch(e){
+        return await execute(engine,request);
+      }catch(e,stack){
+        print("exception:${e.toString()}");
+        print("${stack}");
         return e;
       }
 

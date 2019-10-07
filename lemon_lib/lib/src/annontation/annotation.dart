@@ -24,10 +24,32 @@ class Controller{
 }
 
 class Headers{
-  final String url;
-  const Headers({this.url});
+  final Map<String,dynamic> map;
+  const Headers({this.map});
+}
+
+class Field{
+  final String name;
+  const Field(this.name);
+}
+
+class Body{
+  const Body();
+}
+
+class Query{
+  final String name;
+  const Query(this.name);
+}
+
+class QueryMap{
+  const QueryMap();
 }
 
 class Root{
   const Root();
+}
+
+class EXTRA{
+  const EXTRA();
 }

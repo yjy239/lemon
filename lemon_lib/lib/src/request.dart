@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
-import 'request_body.dart';
 
 
 
@@ -208,7 +207,9 @@ abstract class Extra{
 
 }
 
-
+class DefaultExtra extends Extra{
+  List<dynamic> extra = new List();
+}
 
 
 
@@ -237,6 +238,21 @@ class Request{
      return uri(HttpUrl.get(url.toString()));
    }
 
+   HttpUrl url(){
+     return _url;
+   }
+
+   dynamic body(){
+     return _body;
+   }
+
+   String method(){
+     return _method;
+   }
+
+   Headers header(){
+     return _headers;
+   }
 
    Request setHeader(String name, String value){
      _headers.set(name, value);
@@ -260,34 +276,31 @@ class Request{
    }
 
    Request get() {
-     return method("GET", null);
+     return setMethod("GET", null);
    }
 
    Request head() {
-     return method("HEAD", null);
+     return setMethod("HEAD", null);
    }
 
    Request post(dynamic body) {
-     return method("POST", body);
+     return setMethod("POST", body);
    }
 
    Request delete(dynamic body) {
-     return method("DELETE", body);
+     return setMethod("DELETE", body);
    }
 
-//   Request delete() {
-//     return delete(Util.EMPTY_REQUEST);
-//   }
 
    Request put(dynamic body) {
-     return method("PUT", body);
+     return setMethod("PUT", body);
    }
 
    Request patch(dynamic body) {
-     return method("PATCH", body);
+     return setMethod("PATCH", body);
    }
 
-   Request method(String method, dynamic body) {
+   Request setMethod(String method, dynamic body) {
      if (method == null) throw new FormatException("method == null");
      if (method.length == 0) throw new FormatException("method.length() == 0");
      if (body != null && !permitsRequestBody(method)) {
