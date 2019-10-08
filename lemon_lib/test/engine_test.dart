@@ -13,6 +13,8 @@ void main() async {
   Lemon lemon = new LemonBuilder(new TestFactory())
   .setEngine(factory)
   .build();
+
+
 //  DioEngine engine =  factory.createEngine();
 //  engine.request("www.baidu.com");
 
@@ -80,6 +82,7 @@ class TestImpl implements Test{
 
   Future<Response> setUserId(int id){
     HttpUrl url = new HttpUrl().host("www.baidu.com").scheme("http");
+
     print("${url.build()}");
     Request request = new Request().get().uri(url);
     return client.newCall(request).enqueueFuture();

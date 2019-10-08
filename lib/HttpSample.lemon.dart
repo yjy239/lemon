@@ -26,11 +26,23 @@ class HttpSampleImpl implements HttpSample {
 
     var params = {'user_name': '${name}'};
     params.addAll(params);
+    String baseUrl = client.baseUrl;
+    HttpUrl url = HttpUrl.get(baseUrl);
+
+    params.forEach((name, value) {
+      url.addQueryParameter(name, value);
+    });
+    Request request = new Request().uri(url);
+    request.get();
+
   }
 
   @override
   setUserId(name, body) async {
     var _data = body;
     var params = {'id': '${name}'};
+    String baseUrl = client.baseUrl;
+    HttpUrl url = HttpUrl.get(baseUrl);
+    Request request = new Request().uri(url);
   }
 }

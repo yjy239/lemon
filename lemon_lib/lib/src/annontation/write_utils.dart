@@ -125,6 +125,7 @@ class Writer{
     Map headers = annotation.headers;
     List<String> bodys = annotation.body;
     List extras = annotation.extra;
+    String method = annotation.method;
     final blocks = <Code>[];
 
     //先生成extra,接着生成paramMap，最后生成list按照顺序注入
@@ -153,8 +154,23 @@ class Writer{
 
     //生成Url
 
+    blocks.add(Code("String baseUrl = client.baseUrl;"));
+    blocks.add(Code("HttpUrl url = HttpUrl.get(baseUrl);"));
+
+    blocks.add(Code("bool isHttp = ${annotation.methodUrl}.startsWith(\"http\")||${annotation.methodUrl}.startsWith(\"https\")"));
+
+    //获取get中的url
+    blocks.add(Code("url = !isHttp ? url.addPathSegment(${annotation.methodUrl}):url;"));
+
+    if(method == get){
+      blocks.add(Code("params.forEach((name,value){\n url.addQueryParameter(name, value);\n});"));
+    }
+    blocks.add(Code("Request request = new Request().uri(url);"));
 
 
+    if(method == get){
+      blocks.add(Code("request.get();"));
+    }
 
     return Block.of(blocks);
 
@@ -242,6 +258,7 @@ class Writer{
           ||metadata?.type?.name == "HEAD"
           ||metadata?.type?.name == "GET"){
         annotation.method = metadata?.type?.name;
+        annotation.methodUrl = metadata?.getField("url")?.toStringValue();
       }else if(metadata?.type?.name == "Headers"){
         annotation.headers.addAll(metadata?.getField("map")?.toMapValue());
       }

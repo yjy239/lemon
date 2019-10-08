@@ -2,6 +2,7 @@ import 'package:analyzer/dart/element/element.dart';
 
 class Annotation{
   String method;
+  String methodUrl;
   Map paramMap = new Map();
   List<String> pendingParamsMap = new List();
   Map headers = new Map();

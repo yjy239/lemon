@@ -24,6 +24,7 @@ class LemonBuilder{
   Duration _keepAliveTime = Duration(seconds: 15);
   int _maxRequestTimes = 64;
   int _corePoolSize = 3;
+  String baseUrl;
 
   //设置接口查询器
   LemonBuilder(InterfaceFactory factory){
@@ -34,6 +35,12 @@ class LemonBuilder{
     this._maxPoolSize = maxSize;
     return this;
   }
+
+  LemonBuilder setBaseUrl(String base){
+    this.baseUrl = base;
+    return this;
+  }
+
 
   LemonBuilder setCorePoolMaxSize(int maxSize){
     this._corePoolSize = maxSize;
@@ -61,22 +68,28 @@ class LemonBuilder{
 
   Lemon build(){
     return Lemon(_corePoolSize,_maxPoolSize,_keepAliveTime,_maxRequestTimes,_mInterfaceFactory,
-        _mEngineFactory);
+        _mEngineFactory,baseUrl);
   }
 }
 
 /// 希望完整一个isolate对应一个dio，
 /// 每一个dio请求结束之后会回到当前的isolate
 abstract class Lemon{
+
+
   factory Lemon(int coreSize,int maxSize,Duration keepAliveTime,int maxRequestTimes,InterfaceFactory interfaceFactory,
-      EngineFactory engineFactory) {
+      EngineFactory engineFactory,String baseUrl) {
     return new _LemonImpl(interfaceFactory,engineFactory,
         corePoolsSize: coreSize,maxPoolSize: maxSize,keepAliveTime: keepAliveTime,
-    maxRequestTimes: maxRequestTimes);
+    maxRequestTimes: maxRequestTimes,baseUrl:baseUrl);
   }
 
 
   get engine;
+
+  get baseUrl;
+
+
 
 
   T create<T>(T interface);
@@ -142,14 +155,19 @@ class LemonClient{
   Engine engine;
 
   Dispatcher dispatcher;
+  String baseUrl;
 
   LemonClient(int corePoolsSize,int maxPoolSize,
-      Duration keepAliveTime,int maxRequestTimes,Engine engine):_keepAliveTime = keepAliveTime,
+      Duration keepAliveTime,int maxRequestTimes,Engine engine,String baseUrl):_keepAliveTime = keepAliveTime,
         _maxPoolSize = maxPoolSize,_corePoolsSize = corePoolsSize,
-        _maxRequestTimes = maxRequestTimes,engine = engine{
+        _maxRequestTimes = maxRequestTimes,engine = engine,baseUrl = baseUrl{
 
     dispatcher = new Dispatcher(corePoolSize:_corePoolsSize,
         maxSize: _maxPoolSize,keepAliveTime: _keepAliveTime);
+  }
+
+  void setBaseUrl(String baseUrl){
+    this.baseUrl = baseUrl;
   }
 
 
@@ -166,10 +184,15 @@ class _LemonImpl implements Lemon{
 
   LemonClient client;
 
+  String _baseUrl;
+
   _LemonImpl(this._interfaceFactory,
-   EngineFactory engineFactory,{int corePoolsSize,int maxPoolSize,Duration keepAliveTime,int maxRequestTimes}){
+   EngineFactory engineFactory,{int corePoolsSize,int maxPoolSize,Duration keepAliveTime,int maxRequestTimes,
+        String baseUrl}){
+    this._baseUrl = baseUrl;
     Engine engine = engineFactory?.createEngine();
-    client = new LemonClient(corePoolsSize, maxPoolSize, keepAliveTime, maxRequestTimes, engine);
+    client = new LemonClient(corePoolsSize, maxPoolSize,
+        keepAliveTime, maxRequestTimes, engine,_baseUrl);
 
   }
 
@@ -177,6 +200,17 @@ class _LemonImpl implements Lemon{
     return client.engine;
   }
 
+
+
+  get baseUrl{
+
+    return _baseUrl;
+  }
+
+  set baseUrl(String url){
+    _baseUrl = url;
+    client.setBaseUrl(_baseUrl);
+  }
 
   T create<T>(T interface){
     if(_interfaceFactory == null){

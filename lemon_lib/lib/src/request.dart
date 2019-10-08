@@ -170,15 +170,15 @@ class HttpUrl {
 
   HttpUrl parse(String input){
     Uri uri = Uri.parse(input);
-    _scheme = uri.scheme;
-    _host = uri.host;
-    _port = uri.port;
-    pathSegments = uri.pathSegments;
-    _path = uri.path;
-    queryParameters = uri.queryParameters;
-    _query = uri.query;
-    _fragment= uri.fragment;
-    userInfo = uri.userInfo;
+    _scheme ??= uri?.scheme;
+    _host ??= uri?.host;
+    _port ??= uri?.port;
+    pathSegments ??= uri?.pathSegments;
+    _path ??= uri?.path;
+    queryParameters = uri?.queryParameters;
+    _query ??= uri?.query;
+    _fragment ??= uri?.fragment;
+    userInfo ??= uri?.userInfo;
   }
 
 
