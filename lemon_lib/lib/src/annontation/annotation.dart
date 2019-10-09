@@ -14,6 +14,16 @@ class GET {
   const GET({this.url});
 }
 
+class PUT{
+  final String url;
+  const PUT({this.url});
+}
+
+class DELETE{
+  final String url;
+  const DELETE({this.url});
+}
+
 class Path{
   final String url;
   const Path(this.url);
@@ -48,6 +58,10 @@ class QueryMap{
 
 class Root{
   const Root();
+}
+
+class FormUrlEncoded{
+  const FormUrlEncoded();
 }
 
 class EXTRA{

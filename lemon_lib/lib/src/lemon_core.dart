@@ -109,8 +109,8 @@ class Call{
   }
 
 
-  void enqueue(OnExecute execute,{OnResponse response,OnError error}){
-    lemonClient.dispatcher.enqueue(new AsyncCall(lemonClient?.engine,request,execute,response,error,onEnd));
+  void enqueue({OnResponse response,OnError error}){
+    lemonClient.dispatcher.enqueue(new AsyncCall(lemonClient?.engine,request,innerExecute,response,error,onEnd));
   }
 
   Future<T> enqueueFuture<T>(){

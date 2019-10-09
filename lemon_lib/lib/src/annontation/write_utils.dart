@@ -1,5 +1,6 @@
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/type.dart';
 import 'package:build/src/builder/build_step.dart';
 
 import 'package:lemon_lib/src/annontation/annotation_builder.dart';
@@ -14,15 +15,17 @@ import 'package:source_gen/source_gen.dart';
 
 class Writer{
 
-  static const String  clientName = "client";
+  static const String  clientName = "_client";
   static const String get = "GET";
   static const String post = "POST";
   static const String put = "PUT";
   static const String delete = "DELETE";
   static const String head = "HEAD";
   static const String headers = "Headers";
+  static const String patch = "PATCH";
   static const String extra = "EXTRA";
   static const String body = "Body";
+  static const String path = "Path";
 
   static void writeBegin(StringBuffer buffer,ClassElement element){
      buffer.write(" class ${element.name}Impl implement ${element.name}{\n");
@@ -73,6 +76,8 @@ class Writer{
 
           return params.isRequiredPositional || params.isRequiredNamed;
         }).map((it){
+          annotation.paramsElements[it.name] = it;
+
           return Parameter((paramsBuilder)=>
           paramsBuilder..name = it.name
           ..named = it.isNamed);
@@ -100,87 +105,126 @@ class Writer{
 
 
   static Code getMethod(Annotation annotation){
-    String method = annotation.method;
-    print("method:${method}");
     return parseRequest(annotation);
-//    switch(method){
-//      case get:
-//
-//        break;
-//      case post:
-//      case put:
-//      case delete:
-//      case head:
-//      return parseRequest(annotation);
-//        break;
-//
-//    }
-    return null;
   }
 
-  static TypeChecker _typeChecker(Type type) => new TypeChecker.fromRuntime(type);
+
+  static TypeChecker typeChecker(Type type) => new TypeChecker.fromRuntime(type);
 
   static Code parseRequest(Annotation annotation){
     Map paramsMap =  annotation.paramMap;
     Map headers = annotation.headers;
-    List<String> bodys = annotation.body;
+    List<String> bodyList = annotation.body;
     List extras = annotation.extra;
     String method = annotation.method;
     final blocks = <Code>[];
+    MethodElement element = annotation.element;
+    Map<String,ParameterElement> paths = annotation.paths;
 
-    //先生成extra,接着生成paramMap，最后生成list按照顺序注入
-    if(extras.length > 0){
-      blocks.add(Code("DefaultExtra defaultExtra = new DefaultExtra();\n"));
 
-      extras.forEach((value){
-        blocks.add(Code("defaultExtra.extra.add(${value});\n"));
-      });
+    DartType returnType = element?.returnType;
+
+
+    //先生成headers,接着生成paramMap，最后生成list按照顺序注入
+    blocks.add(literalMap(headers).assignVar("headers").statement);
+
+
+    if(extras.length > 1){
+      throw Exception("extra is only set once");
     }
 
+    blocks.add(literalMap(new Map()).assignVar("_data").statement);
+
     
-   if(bodys.length > 1){
+   if(bodyList.length > 1){
      throw Exception("body is only set once");
-   }else if(bodys.length == 1){
-     blocks.add(Code("var _data = ${bodys[0]};"));
+   }else if(bodyList.length == 1){
+
+     ParameterElement parameterElement = annotation.paramsElements[bodyList[0]];
+
+
+     if(parameterElement.type.name == "Map"){
+       blocks.add(Code("_data.addAll( ${bodyList[0]});"));
+     }else{
+       throw Exception("@Body can only be set Map type");
+     }
+
    }
 
-    blocks.add(literalMap(paramsMap).assignVar("params").statement);
+    blocks.add(literalMap(paramsMap).assignVar("_params").statement);
 
     if(annotation.pendingParamsMap.length > 0){
       annotation.pendingParamsMap.forEach((String s){
-        blocks.add(Code("params.addAll($s);"));
+        blocks.add(Code("_params.addAll($s);"));
       });
     }
 
     //生成Url
-
     blocks.add(Code("String baseUrl = client.baseUrl;"));
     blocks.add(Code("HttpUrl url = HttpUrl.get(baseUrl);"));
-
-    blocks.add(Code("bool isHttp = ${annotation.methodUrl}.startsWith(\"http\")||${annotation.methodUrl}.startsWith(\"https\")"));
-
     //获取get中的url
-    blocks.add(Code("url = !isHttp ? url.addPathSegment(${annotation.methodUrl}):url;"));
+    String url= "${annotation.methodUrl}";
+    paths.forEach((key,value){
+      url = url.replaceFirst("{${key}}", "\${${value.name}}");
+    });
 
-    if(method == get){
-      blocks.add(Code("params.forEach((name,value){\n url.addQueryParameter(name, value);\n});"));
+
+    blocks.add(Code("bool isHttp = \"${url}\".startsWith(\"http\")||\"${url}\".startsWith(\"https\");"));
+
+    blocks.add(Code("url = !isHttp ? url.encodedPath(\"${url}\"):url;"));
+
+    if(method == get||method == head){
+      blocks.add(Code("_params.forEach((name,value){\n url.addQueryParameter(name, value);\n});"));
+    }else if(method == post ||method == delete ||method == put){
+      blocks.add(Code("_data.addAll(_params);"));
     }
+
     blocks.add(Code("Request request = new Request().uri(url);"));
+
+    blocks.add(Code("headers..forEach((name,value){\n request.addHeader(name, value);\n});"));
+
+    //生成extra
+    if(extras.length == 1){
+      blocks.add(Code("if(${extras[0]} is Extra){\n"
+          "request.extra = ${extras[0]};\n"
+          "}else{\n"));
+      blocks.add(Code("DefaultExtra defaultExtra = new DefaultExtra();"));
+      if(extras.length > 0){
+        extras.forEach((value){
+          blocks.add(Code("defaultExtra.extra.add(${value});"));
+        });
+      }
+
+      blocks.add(Code("request.extra = defaultExtra;"));
+      blocks.add(Code("\n}"));
+
+    }
 
 
     if(method == get){
       blocks.add(Code("request.get();"));
+    }else if(method == post){
+      blocks.add(Code("request.post(_data);"));
+    }else if(method == put){
+      blocks.add(Code("request.put(_data);"));
+    }else if(method == delete){
+      blocks.add(Code("request.delete(_data);"));
+    }else if(method == head){
+      blocks.add(Code("request.head();"));
+    }else if(method == path){
+      blocks.add(Code("request.patch(_data);"));
+    }
+
+    if(returnType.isDartAsyncFuture){
+      blocks.add(Code("return client.newCall(request).enqueueFuture();"));
+    }else{
+      blocks.add(Code("client.newCall(request).enqueue();"));
     }
 
     return Block.of(blocks);
 
-
-
   }
 
-  static Code parseBodyRequest(Annotation annotation){
-
-  }
 
   static String getCurrentImport(BuildStep buildStep,ClassElement classElement){
     if (buildStep.inputId.path.contains('lib/')) {
@@ -261,6 +305,8 @@ class Writer{
         annotation.methodUrl = metadata?.getField("url")?.toStringValue();
       }else if(metadata?.type?.name == "Headers"){
         annotation.headers.addAll(metadata?.getField("map")?.toMapValue());
+      }else if(metadata?.type?.name == "FormUrlEncoded"){
+        annotation.isFormUrlEncoded = true;
       }
     }
     return annotation;
@@ -295,6 +341,11 @@ class Writer{
 
       if(metadata.type.name == extra){
         annotation.extra.add("${parameterElement.name}");
+      }
+
+      if(metadata.type.name == path){
+        String path = metadata?.getField("url")?.toStringValue();
+        annotation.paths[path] = parameterElement;
       }
 
     }

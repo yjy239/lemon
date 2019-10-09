@@ -39,6 +39,8 @@ class DefaultEngine implements Engine{
     HttpUrl httpUrl = request.url();
     if(request.extra is DioExtra){
       extra = request.extra as DioExtra;
+    }else{
+      extra = new DioExtra();
     }
 
     RequestOptions options;

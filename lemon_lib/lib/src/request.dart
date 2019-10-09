@@ -163,6 +163,18 @@ class HttpUrl {
 
 
   Uri build(){
+    if(_path != null&&pathSegments?.length == 0){
+      pathSegments = null;
+    }else if(_path != null&&_path.isEmpty){
+      _path = null;
+    }
+
+    if(_query!=null&&queryParameters?.length == 0){
+      queryParameters = null;
+    }else if(_query != null&&_query.isEmpty){
+      _query = null;
+    }
+
     return Uri(scheme: _scheme,host: _host,port: _port,
       path: _path,pathSegments: pathSegments,
         query: _query,queryParameters: queryParameters,fragment: _fragment,userInfo: userInfo);
@@ -179,6 +191,7 @@ class HttpUrl {
     _query ??= uri?.query;
     _fragment ??= uri?.fragment;
     userInfo ??= uri?.userInfo;
+    return this;
   }
 
 

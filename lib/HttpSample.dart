@@ -7,13 +7,14 @@ import 'User.dart';
 @Controller()
 class HttpSample{
 
-  @GET(url:"www.baidu.com")
-  void setUser(@Query("user_name")User name,@EXTRA()Map map,@QueryMap()Map params){
+  @GET(url:"task/{id}")
+  void setUser(@Query("user_name")User name,@EXTRA()DioExtra extra,
+      @QueryMap()Map params,@Path("id")int id){
 
   }
 
 
-  @POST(url:"www.baidu.com")
+  @POST(url:"create_task")
   Future<Response> setUserId(@Field("id")User name,@Body()Map body){
     return null;
   }

@@ -75,7 +75,7 @@ class TestImpl implements Test{
 
   void setUser(String name) async {
 //    dispatcher.enqueue(new ExecuteRunnable(engine,p));
-  client.newCall(null).enqueue(execute,response:response,error:error);
+  client.newCall(null).enqueue(response:response,error:error);
 
   }
 

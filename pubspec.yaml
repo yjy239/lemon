@@ -17,6 +17,7 @@ environment:
   sdk: ">=2.1.0 <3.0.0"
 
 dependencies:
+  dio: ^3.0.0
   build_runner: 1.7.0
 
   lemon_lib:
