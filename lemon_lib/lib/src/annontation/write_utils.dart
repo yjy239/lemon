@@ -120,6 +120,7 @@ class Writer{
     final blocks = <Code>[];
     MethodElement element = annotation.element;
     Map<String,ParameterElement> paths = annotation.paths;
+    Map fieldMap = annotation.fieldMap;
 
 
     DartType returnType = element?.returnType;
@@ -151,7 +152,8 @@ class Writer{
 
    }
 
-    blocks.add(literalMap(paramsMap).assignVar("_params").statement);
+   blocks.add(literalMap(paramsMap).assignVar("_params").statement);
+   blocks.add(literalMap(fieldMap).assignVar("_fieldMap").statement);
 
     if(annotation.pendingParamsMap.length > 0){
       annotation.pendingParamsMap.forEach((String s){
@@ -160,7 +162,7 @@ class Writer{
     }
 
     //生成Url
-    blocks.add(Code("String baseUrl = client.baseUrl;"));
+    blocks.add(Code("String baseUrl = ${clientName}.baseUrl;"));
     blocks.add(Code("HttpUrl url = HttpUrl.get(baseUrl);"));
     //获取get中的url
     String url= "${annotation.methodUrl}";
@@ -216,9 +218,9 @@ class Writer{
     }
 
     if(returnType.isDartAsyncFuture){
-      blocks.add(Code("return client.newCall(request).enqueueFuture();"));
+      blocks.add(Code("return await ${clientName}.newCall(request).enqueueFuture();"));
     }else{
-      blocks.add(Code("client.newCall(request).enqueue();"));
+      blocks.add(Code("await ${clientName}.newCall(request).enqueue();"));
     }
 
     return Block.of(blocks);
@@ -318,32 +320,21 @@ class Writer{
     for(ParameterElement parameterElement in parameterList){
       ElementAnnotation meta = parameterElement?.metadata[0];
       DartObject metadata =meta.computeConstantValue();
-      if(annotation.method =="GET"){
-        if(metadata?.type?.name == "Query"){
-          String query =metadata?.getField("name")?.toStringValue();
-          annotation.paramMap["$query"] = "\${${parameterElement.name}}";
-        }else if(metadata?.type?.name == "QueryMap"){
-          annotation.pendingParamsMap.add("${parameterElement.name}");
-        }
-      }else if(annotation.method == "POST"
-          ||annotation.method == "PUT"
-          ||annotation.method == "DELETE"
-          ||annotation.method == "HEAD"){
-        if(metadata.type.name == "Field"){
-          String field = metadata?.getField("name")?.toStringValue();
-          annotation.paramMap["$field"] = "\${${parameterElement.name}}";
-        }else if(metadata.type.name == "FieldMap"){
-          annotation.pendingParamsMap.add("${parameterElement.name}");
-        }else if(metadata.type.name == body){
-          annotation.body.add("${parameterElement.name}");
-        }
-      }
-
-      if(metadata.type.name == extra){
+      if(metadata?.type?.name == "Query"){
+        String query =metadata?.getField("name")?.toStringValue();
+        annotation.paramMap["$query"] = "\${${parameterElement.name}}";
+      }else if(metadata?.type?.name == "QueryMap"){
+        annotation.pendingParamsMap.add("${parameterElement.name}");
+      }else if(metadata.type.name == "Field"){
+        String field = metadata?.getField("name")?.toStringValue();
+        annotation.fieldMap["$field"] = "\${${parameterElement.name}}";
+      }else if(metadata.type.name == "FieldMap"){
+        annotation.pendingFieldMap.add("${parameterElement.name}");
+      }else if(metadata.type.name == body){
+        annotation.body.add("${parameterElement.name}");
+      }else if(metadata.type.name == extra){
         annotation.extra.add("${parameterElement.name}");
-      }
-
-      if(metadata.type.name == path){
+      }else if(metadata.type.name == path){
         String path = metadata?.getField("url")?.toStringValue();
         annotation.paths[path] = parameterElement;
       }
