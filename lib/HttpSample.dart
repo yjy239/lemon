@@ -15,7 +15,8 @@ class HttpSample{
 
 
   @POST(url:"create_task")
-  Future<Response> setUserId(@Field("id")User name,@Body()Map body){
+  @FormUrlEncoded()
+  Future<Response> setUserId(@Field("id")User name,@FieldMap()Map body){
     return null;
   }
 }

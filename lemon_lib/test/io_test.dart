@@ -4,15 +4,29 @@ import 'dart:io';
 import 'dart:math';
 import 'package:http_parser/src/media_type.dart';
 
-void main(){
+
+
+
+void main() async {
   String test = "aaaa";
 
 
-  fun();
+//  fun();
 
-  var onDate = Zone.current.registerUnaryCallback<dynamic,int>(handleData);
+//  var onDate = Zone.current.registerUnaryCallback<dynamic,int>(handleData);
+//
+//  Zone.current.runUnary(onDate,2);
 
-  Zone.current.runUnary(onDate,2);
+  List<int> s = [1,2,3,4,5,6,7];
+  await Stream.value(s).transform<List<int>>(new RequestBodyTransformer(
+    handleData: (s,sink){
+      print("s:${s}");
+
+    }
+  )).listen((List<int> s){
+    print(s);
+  }).asFuture();
+
 
 }
 
@@ -71,64 +85,73 @@ handleData(result) {
 }
 
 
-class RequestBody extends Stream<List<int>>{
+class RequestBodyTransformer<S , T extends List<int>>  implements StreamTransformer<S, List<int>>,EventSink<T>{
 
-  RequestBody(){
+  Function handleData;
+  EventSink<T> sink;
 
-  }
-
-
-
-  /// Returns the Content-Type header for this body.
-  MediaType contentType(){
-    return null;
-  }
-  /// Returns the number of bytes that will be written to {@code sink} in a call to {@link #writeTo},
-  ///or -1 if that count is unknown.
-  contentLength() {
-    return -1;
-  }
+  RequestBodyTransformer({void handleData(S data, EventSink<T> sink),
+    void handleError(Object error, StackTrace stackTrace, EventSink<T> sink),
+    void handleDone(EventSink<T> sink)}):handleData = handleData;
 
 
   @override
-  StreamSubscription<List<int>> listen(void onData(List<int> event),
-      {Function onError, void onDone(), bool cancelOnError}){
+  void add(T event) {
 
-    return null;
+  } //
+//  /// Returns the Content-Type header for this body.
+//  MediaType contentType(){
+//    return MediaType.parse(_contentType);
+//  }
+//  /// Returns the number of bytes that will be written to {@code sink} in a call to {@link #writeTo},
+//  ///or -1 if that count is unknown.
+//  contentLength() {
+//    return _contentLength;
+//  }
+
+  @override
+  Stream<List<int>> bind(Stream<S> stream) {
+    return RequestBody(stream,handleData) ;
   }
 
+  StreamTransformer<RS, RT> cast<RS, RT>() =>
+      StreamTransformer.castFrom<S, List<int>, RS, RT>(this);
+
+  @override
+  void addError(Object error, [StackTrace stackTrace]) {
+
+  }
+
+  @override
+  void close() {
+
+  }
 
 
 }
 
-class RequestBodyController extends Stream<List<int>>{
-
-  RequestBodyController(){
-
-  }
 
 
+class RequestBody<S> extends Stream<List<int>>{
+  String _contentType;
+  int _contentLength;
+  Function(S data, EventSink sink) handle;
 
-  /// Returns the Content-Type header for this body.
-  MediaType contentType(){
-    return null;
-  }
-  /// Returns the number of bytes that will be written to {@code sink} in a call to {@link #writeTo},
-  ///or -1 if that count is unknown.
-  contentLength() {
-    return -1;
-  }
+  Stream<S> source;
+  RequestBody(this.source,this.handle);
 
 
   @override
   StreamSubscription<List<int>> listen(void onData(List<int> event),
-      {Function onError, void onDone(), bool cancelOnError}){
-
-    return null;
+      {Function onError, void onDone(), bool cancelOnError}) {
+    var subscription =  Stream.castFrom<S,List<int>>(source)
+        .listen(handleData,onError: onError,onDone: onDone,cancelOnError: cancelOnError);
+    return subscription;
   }
 
-
+  void handleData(dynamic event){
+    print("in requestBody");
+  }
 
 }
-
 

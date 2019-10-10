@@ -221,6 +221,8 @@ abstract class Extra{
 }
 
 class DefaultExtra extends Extra{
+  String contentType;
+  int contentLength;
   List<dynamic> extra = new List();
 }
 
@@ -231,7 +233,7 @@ class Request{
    String _method;
    Headers _headers = new Headers();
    dynamic _body;
-   Extra extra;
+   DefaultExtra extra;
 
 
    Request uri(HttpUrl url) {

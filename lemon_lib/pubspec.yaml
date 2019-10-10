@@ -17,6 +17,7 @@ dependencies:
   build_config: '>=0.3.0'
   source_gen: '0.9.4+4'
   build_runner: '1.7.0'
+  http_parser: ">=0.0.1 <4.0.0"
 
   flutter:
     sdk: flutter

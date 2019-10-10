@@ -1,3 +1,5 @@
+import 'package:http_parser/src/media_type.dart';
+
 class Url {
   final String url;
   const Url(this.url);
@@ -40,7 +42,13 @@ class Headers{
 
 class Field{
   final String name;
-  const Field(this.name);
+  final bool encode;
+  const Field(this.name,{this.encode = false});
+}
+
+class FieldMap{
+  final bool encode;
+  const FieldMap({this.encode = false});
 }
 
 class Body{
@@ -49,11 +57,13 @@ class Body{
 
 class Query{
   final String name;
-  const Query(this.name);
+  final bool encode;
+  const Query(this.name,{this.encode = false});
 }
 
 class QueryMap{
-  const QueryMap();
+  final bool encode;
+  const QueryMap({this.encode = false});
 }
 
 class Root{
@@ -61,6 +71,7 @@ class Root{
 }
 
 class FormUrlEncoded{
+
   const FormUrlEncoded();
 }
 

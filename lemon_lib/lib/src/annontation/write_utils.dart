@@ -26,6 +26,7 @@ class Writer{
   static const String extra = "EXTRA";
   static const String body = "Body";
   static const String path = "Path";
+  static String formBodyContentType = "application/x-www-form-urlencoded";
 
   static void writeBegin(StringBuffer buffer,ClassElement element){
      buffer.write(" class ${element.name}Impl implement ${element.name}{\n");
@@ -121,6 +122,12 @@ class Writer{
     MethodElement element = annotation.element;
     Map<String,ParameterElement> paths = annotation.paths;
     Map fieldMap = annotation.fieldMap;
+    List<String> pendingFieldMap = annotation.pendingFieldMap;
+
+
+    if((fieldMap?.length>0||pendingFieldMap?.length>0)&&bodyList?.length>0){
+      throw Exception("only be set one of @Field/@FieldMap and @Body  on request(${annotation.methodUrl})");
+    }
 
 
     DartType returnType = element?.returnType;
@@ -131,14 +138,14 @@ class Writer{
 
 
     if(extras.length > 1){
-      throw Exception("extra is only set once");
+      throw Exception("extra is only set once on request(${annotation.methodUrl})");
     }
 
     blocks.add(literalMap(new Map()).assignVar("_data").statement);
 
     
    if(bodyList.length > 1){
-     throw Exception("body is only set once");
+     throw Exception("body is only set once on request(${annotation.methodUrl})");
    }else if(bodyList.length == 1){
 
      ParameterElement parameterElement = annotation.paramsElements[bodyList[0]];
@@ -147,13 +154,19 @@ class Writer{
      if(parameterElement.type.name == "Map"){
        blocks.add(Code("_data.addAll( ${bodyList[0]});"));
      }else{
-       throw Exception("@Body can only be set Map type");
+       throw Exception("@Body can only be set Map type on request(${annotation.methodUrl})");
      }
 
    }
 
    blocks.add(literalMap(paramsMap).assignVar("_params").statement);
    blocks.add(literalMap(fieldMap).assignVar("_fieldMap").statement);
+
+    if(!annotation.isFormUrlEncoded&&
+        (fieldMap.isNotEmpty||annotation.pendingFieldMap.isNotEmpty)){
+      throw Exception("if want to use Field or FieldMap,please add @FormUrlEncoded on request(${annotation.methodUrl})");
+    }
+
 
     if(annotation.pendingParamsMap.length > 0){
       annotation.pendingParamsMap.forEach((String s){
@@ -175,33 +188,45 @@ class Writer{
 
     blocks.add(Code("url = !isHttp ? url.encodedPath(\"${url}\"):url;"));
 
-    if(method == get||method == head){
-      blocks.add(Code("_params.forEach((name,value){\n url.addQueryParameter(name, value);\n});"));
-    }else if(method == post ||method == delete ||method == put){
-      blocks.add(Code("_data.addAll(_params);"));
-    }
+    blocks.add(Code("_params.forEach((name,value){\n url.addQueryParameter(name, value);\n});"));
+
+
+
 
     blocks.add(Code("Request request = new Request().uri(url);"));
 
     blocks.add(Code("headers..forEach((name,value){\n request.addHeader(name, value);\n});"));
 
     //生成extra
+    blocks.add(Code("DefaultExtra defaultExtra = new DefaultExtra();"));
     if(extras.length == 1){
-      blocks.add(Code("if(${extras[0]} is Extra){\n"
-          "request.extra = ${extras[0]};\n"
-          "}else{\n"));
-      blocks.add(Code("DefaultExtra defaultExtra = new DefaultExtra();"));
+//      blocks.add(Code("if(${extras[0]} is Extra){\n"
+//          "request.extra = ${extras[0]};\n"
+//          "}else{\n"));
       if(extras.length > 0){
         extras.forEach((value){
           blocks.add(Code("defaultExtra.extra.add(${value});"));
         });
       }
 
-      blocks.add(Code("request.extra = defaultExtra;"));
-      blocks.add(Code("\n}"));
+
+//      blocks.add(Code("\n}"));
 
     }
 
+    String contentType;
+    if(annotation.isFormUrlEncoded){
+      contentType = formBodyContentType;
+      blocks.add(Code("_data.addAll(_fieldMap);"));
+      if(pendingFieldMap.length > 0){
+        pendingFieldMap.forEach((fieldMap){
+          blocks.add(Code("_data.addAll(${fieldMap});"));
+        });
+      }
+      blocks.add(Code("defaultExtra.contentType = \"${contentType}\";"));
+    }
+
+    blocks.add(Code("request.extra = defaultExtra;"));
 
     if(method == get){
       blocks.add(Code("request.get();"));
