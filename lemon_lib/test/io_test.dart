@@ -18,15 +18,20 @@ void main() async {
 //  Zone.current.runUnary(onDate,2);
 
   List<int> s = [1,2,3,4,5,6,7];
-  await Stream.value(s).transform<List<int>>(new RequestBodyTransformer(
-    handleData: (s,sink){
-      print("s:${s}");
+//  await Stream.value(s).transform<List<int>>(new RequestBodyTransformer(
+//    handleData: (s,sink){
+//      print("s:${s}");
+//
+//    }
+//  )).listen((List<int> s){
+//    print(s);
+//  }).asFuture();
 
-    }
-  )).listen((List<int> s){
-    print(s);
+  await Stream.fromIterable(s).map<String>((event){
+    return "${event}11";
+  }).listen((String s){
+    print("result:${s}");
   }).asFuture();
-
 
 }
 
@@ -85,20 +90,16 @@ handleData(result) {
 }
 
 
-class RequestBodyTransformer<S , T extends List<int>>  implements StreamTransformer<S, List<int>>,EventSink<T>{
+class RequestBodyTransformer  implements StreamTransformer<List<int>, List<int>>{
 
   Function handleData;
-  EventSink<T> sink;
+  EventSink<List<int>> sink;
 
-  RequestBodyTransformer({void handleData(S data, EventSink<T> sink),
-    void handleError(Object error, StackTrace stackTrace, EventSink<T> sink),
-    void handleDone(EventSink<T> sink)}):handleData = handleData;
+  RequestBodyTransformer({void handleData(List<int> data, EventSink<List<int>> sink),
+    void handleError(Object error, StackTrace stackTrace, EventSink<List<int>> sink),
+    void handleDone(EventSink<List<int>> sink)}):handleData = handleData;
 
 
-  @override
-  void add(T event) {
-
-  } //
 //  /// Returns the Content-Type header for this body.
 //  MediaType contentType(){
 //    return MediaType.parse(_contentType);
@@ -110,41 +111,33 @@ class RequestBodyTransformer<S , T extends List<int>>  implements StreamTransfor
 //  }
 
   @override
-  Stream<List<int>> bind(Stream<S> stream) {
+  Stream<List<int>> bind(Stream<List<int>> stream) {
     return RequestBody(stream,handleData) ;
   }
 
   StreamTransformer<RS, RT> cast<RS, RT>() =>
-      StreamTransformer.castFrom<S, List<int>, RS, RT>(this);
+      StreamTransformer.castFrom<List<int>, List<int>, RS, RT>(this);
 
-  @override
-  void addError(Object error, [StackTrace stackTrace]) {
 
-  }
-
-  @override
-  void close() {
-
-  }
 
 
 }
 
 
 
-class RequestBody<S> extends Stream<List<int>>{
+class RequestBody extends Stream<List<int>>{
   String _contentType;
   int _contentLength;
-  Function(S data, EventSink sink) handle;
+  Function(List<int> data, EventSink sink) handle;
 
-  Stream<S> source;
+  Stream source;
   RequestBody(this.source,this.handle);
 
 
   @override
   StreamSubscription<List<int>> listen(void onData(List<int> event),
       {Function onError, void onDone(), bool cancelOnError}) {
-    var subscription =  Stream.castFrom<S,List<int>>(source)
+    StreamSubscription<List<int>> subscription =  Stream.castFrom(source)
         .listen(handleData,onError: onError,onDone: onDone,cancelOnError: cancelOnError);
     return subscription;
   }
@@ -153,5 +146,156 @@ class RequestBody<S> extends Stream<List<int>>{
     print("in requestBody");
   }
 
+}
+
+/// Data-handler coming from [StreamTransformer.fromHandlers].
+typedef void _TransformDataHandler<S, T>(S data, EventSink<T> sink);
+
+/// Error-handler coming from [StreamTransformer.fromHandlers].
+typedef void _TransformErrorHandler<T>(
+    Object error, StackTrace stackTrace, EventSink<T> sink);
+
+/// Done-handler coming from [StreamTransformer.fromHandlers].
+typedef void _TransformDoneHandler<T>(EventSink<T> sink);
+
+class _HandlerEventSink<S, T> implements EventSink<S> {
+  final _TransformDataHandler<S, T> _handleData;
+  final _TransformErrorHandler<T> _handleError;
+  final _TransformDoneHandler<T> _handleDone;
+
+  /// The output sink where the handlers should send their data into.
+  EventSink<T> _sink;
+
+  _HandlerEventSink(
+      this._handleData, this._handleError, this._handleDone, this._sink) {
+    if (_sink == null) {
+      throw new ArgumentError("The provided sink must not be null.");
+    }
+  }
+
+  bool get _isClosed => _sink == null;
+
+  void add(S data) {
+    if (_isClosed) {
+      throw StateError("Sink is closed");
+    }
+    if (_handleData != null) {
+      _handleData(data, _sink);
+    } else {
+      _sink.add(data as T);
+    }
+  }
+
+  void addError(Object error, [StackTrace stackTrace]) {
+    if (_isClosed) {
+      throw StateError("Sink is closed");
+    }
+    if (_handleError != null) {
+      _handleError(error, stackTrace, _sink);
+    } else {
+      _sink.addError(error, stackTrace);
+    }
+  }
+
+  void close() {
+    if (_isClosed) return;
+    var sink = _sink;
+    _sink = null;
+    if (_handleDone != null) {
+      _handleDone(sink);
+    } else {
+      sink.close();
+    }
+  }
+}
+
+
+class RequestBodyStreamSubscription<S, T> implements StreamSubscription<T> ,
+    EventSink<T>{
+  final StreamSubscription<S> _source;
+
+  /// Zone where listen was called.
+  final Zone _zone = Zone.current;
+
+  /// User's data handler. May be null.
+  void Function(T data) _handleData;
+
+  /// Copy of _source's handleError so we can report errors in onData.
+  /// May be null.
+  Function _handleError;
+  _HandlerEventSink _handlerEventSink;
+
+  RequestBodyStreamSubscription(this._source, this._handlerEventSink) {
+    _source.onData(_onData);
+  }
+
+  Future cancel() => _source.cancel();
+
+  void onData(void handleData(T data)) {
+    _handleData = handleData == null
+        ? null
+        : _zone.registerUnaryCallback<dynamic, T>(handleData);
+  }
+
+  void onError(Function handleError) {
+    _source.onError(handleError);
+    if (handleError == null) {
+      _handleError = null;
+    } else if (handleError is Function(Null, Null)) {
+      _handleError = _zone
+          .registerBinaryCallback<dynamic, Object, StackTrace>(handleError);
+    } else {
+      _handleError = _zone.registerUnaryCallback<dynamic, Object>(handleError);
+    }
+  }
+
+  void onDone(void handleDone()) {
+    _source.onDone(handleDone);
+  }
+
+  void _onData(S data) {
+    if (_handleData == null) return;
+    T targetData;
+    try {
+      targetData = data as T;
+    } catch (error, stack) {
+      if (_handleError == null) {
+        _zone.handleUncaughtError(error, stack);
+      } else if (_handleError is Function(Null, Null)) {
+        _zone.runBinaryGuarded(_handleError, error, stack);
+      } else {
+        _zone.runUnaryGuarded(_handleError, error);
+      }
+      return;
+    }
+    _zone.runUnaryGuarded(_handleData, targetData);
+  }
+
+  void pause([Future resumeSignal]) {
+    _source.pause(resumeSignal);
+  }
+
+  void resume() {
+    _source.resume();
+  }
+
+  bool get isPaused => _source.isPaused;
+
+  Future<E> asFuture<E>([E futureValue]) => _source.asFuture<E>(futureValue);
+
+  @override
+  void add(T event) {
+
+  }
+
+  @override
+  void close() {
+
+  }
+
+  @override
+  void addError(Object error, [StackTrace stackTrace]) {
+
+  }
 }
 
