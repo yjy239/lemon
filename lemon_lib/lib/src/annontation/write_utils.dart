@@ -141,6 +141,7 @@ class Writer{
       throw Exception("extra is only set once on request(${annotation.methodUrl})");
     }
 
+    ///所有的请求数据都保存到_data
     blocks.add(literalMap(new Map()).assignVar("_data").statement);
 
     
@@ -190,9 +191,6 @@ class Writer{
 
     blocks.add(Code("_params.forEach((name,value){\n url.addQueryParameter(name, value);\n});"));
 
-
-
-
     blocks.add(Code("Request request = new Request().uri(url);"));
 
     blocks.add(Code("headers..forEach((name,value){\n request.addHeader(name, value);\n});"));
@@ -200,21 +198,19 @@ class Writer{
     //生成extra
     blocks.add(Code("DefaultExtra defaultExtra = new DefaultExtra();"));
     if(extras.length == 1){
-//      blocks.add(Code("if(${extras[0]} is Extra){\n"
-//          "request.extra = ${extras[0]};\n"
-//          "}else{\n"));
+      blocks.add(Code("if(${extras[0]} is Extra){\n"
+          "request.extra = ${extras[0]};\n"
+          "}else{\n"));
       if(extras.length > 0){
         extras.forEach((value){
           blocks.add(Code("defaultExtra.extra.add(${value});"));
         });
       }
-
-
-//      blocks.add(Code("\n}"));
-
+      blocks.add(Code("\n}"));
     }
 
     String contentType;
+    blocks.add(Code("RequestBody _body;"));
     if(annotation.isFormUrlEncoded){
       contentType = formBodyContentType;
       blocks.add(Code("_data.addAll(_fieldMap);"));
@@ -223,23 +219,23 @@ class Writer{
           blocks.add(Code("_data.addAll(${fieldMap});"));
         });
       }
-      blocks.add(Code("defaultExtra.contentType = \"${contentType}\";"));
+      blocks.add(Code("_body = RequestBody.create(\"${contentType}\",-1);"));
+      blocks.add(Code("_body.extra = _data;"));
     }
 
-    blocks.add(Code("request.extra = defaultExtra;"));
 
     if(method == get){
       blocks.add(Code("request.get();"));
     }else if(method == post){
-      blocks.add(Code("request.post(_data);"));
+      blocks.add(Code("request.post(_body);"));
     }else if(method == put){
-      blocks.add(Code("request.put(_data);"));
+      blocks.add(Code("request.put(_body);"));
     }else if(method == delete){
-      blocks.add(Code("request.delete(_data);"));
+      blocks.add(Code("request.delete(_body);"));
     }else if(method == head){
       blocks.add(Code("request.head();"));
     }else if(method == path){
-      blocks.add(Code("request.patch(_data);"));
+      blocks.add(Code("request.patch(_body);"));
     }
 
     if(returnType.isDartAsyncFuture){

@@ -5,3 +5,4 @@ export 'src/engine.dart';
 export 'src/lemon_core.dart';
 export 'src/request.dart';
 export 'src/default_engine.dart';
+export 'src/request_body.dart';

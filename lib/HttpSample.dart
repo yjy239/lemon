@@ -19,4 +19,9 @@ class HttpSample{
   Future<Response> setUserId(@Field("id")User name,@FieldMap()Map body){
     return null;
   }
+
+  @POST(url:"create_task")
+  Future<Response> setUserName(@Field("id")User name,@Body()Map body){
+    return null;
+  }
 }

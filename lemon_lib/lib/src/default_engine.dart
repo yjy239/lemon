@@ -23,6 +23,7 @@ class DioExtra extends Extra{
   RequestEncoder requestEncoder;
 
   ResponseDecoder responseDecoder;
+  int connectTimeout;
 }
 
 class DefaultEngine implements Engine{
@@ -49,18 +50,20 @@ class DefaultEngine implements Engine{
       options = new RequestOptions();
       options.headers = request.header().map;
       options.method = method;
-      options.extra = extra?.extra;
-      options.followRedirects = extra?.followRedirects;
-      options.responseType = extra?.responseType;
-      options.sendTimeout = extra?.sendTimeout;
-      options.receiveTimeout = extra?.receiveTimeout;
-      options.validateStatus = validateStatus;
-      options.maxRedirects = extra?.maxRedirects;
-      options.requestEncoder = requestEncoder;
-      options.responseDecoder = requestDecoder;
+      options.extra ??= extra?.extra;
+      options.followRedirects ??= extra?.followRedirects;
+      options.responseType ??= extra?.responseType;
+      options.sendTimeout ??= extra?.sendTimeout;
+      options.receiveTimeout ??= extra?.receiveTimeout;
+      options.validateStatus ??= extra?.validateStatus;
+      options.maxRedirects ??= extra?.maxRedirects;
+      options.requestEncoder ??= extra?.requestEncoder;
+      options.responseDecoder ??= extra?.responseDecoder;
+      options.contentType ??= request.body().contentType();
+      options.cancelToken ??=extra?.cancelToken;
     }
     Response<T> response = await dio?.request<T>(httpUrl?.build().toString(),
-      data : request?.body(),queryParameters: httpUrl?.queryParameters,
+      data : request?.body().data,queryParameters: httpUrl?.queryParameters,
         cancelToken: extra?.cancelToken,
       onSendProgress: onSend,onReceiveProgress:onReceive,
       options: options) ;
@@ -73,25 +76,40 @@ class DefaultEngine implements Engine{
   }
 
   static onSend(int count, int total){
-    extra?.onSendProgress(count,total);
+    if(extra?.onSendProgress != null){
+      extra?.onSendProgress(count,total);
+    }
+
   }
 
   static onReceive(int count, int total){
-    extra?.onReceiveProgress(count,total);
+    if(extra?.onReceiveProgress!=null){
+      extra?.onReceiveProgress(count,total);
+    }
+
   }
 
   static String requestDecoder(
       List<int> responseBytes, RequestOptions options, ResponseBody responseBody){
+    if(extra?.responseDecoder == null){
+      return null;
+    }
    return extra?.responseDecoder(responseBytes,options,responseBody);
   }
 
   static List<int> requestEncoder(
       String request, RequestOptions options){
+    if(extra?.requestEncoder == null){
+      return null;
+    }
     return extra?.requestEncoder(request,options);
   }
 
 
   static bool validateStatus(int status){
+    if(extra?.validateStatus == null){
+      return false;
+    }
     return extra?.validateStatus(status);
   }
 
@@ -101,7 +119,7 @@ class DefaultEngine implements Engine{
   @override
   void close() {
     // TODO: implement close
-    dio.close();
+    dio?.close();
   }
 
 }

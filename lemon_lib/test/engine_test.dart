@@ -84,7 +84,11 @@ class TestImpl implements Test{
     HttpUrl url = new HttpUrl().host("www.baidu.com").scheme("http");
 
     print("${url.build()}");
-    Request request = new Request().get().uri(url);
+    DioExtra extra = new DioExtra();
+    extra.sendTimeout =  500;
+    extra.receiveTimeout = 500;
+    Request request = new Request().get().uri(url)
+    ..extra = extra;
     return client.newCall(request).enqueueFuture();
   }
 

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:lemon_lib/src/request_body.dart';
 
 
 
@@ -232,8 +233,8 @@ class Request{
    HttpUrl _url;
    String _method;
    Headers _headers = new Headers();
-   dynamic _body;
-   DefaultExtra extra;
+   RequestBody _body;
+   Extra extra;
 
 
    Request uri(HttpUrl url) {
@@ -257,7 +258,7 @@ class Request{
      return _url;
    }
 
-   dynamic body(){
+   RequestBody body(){
      return _body;
    }
 
