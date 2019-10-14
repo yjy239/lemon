@@ -113,7 +113,7 @@ class Writer{
   static TypeChecker typeChecker(Type type) => new TypeChecker.fromRuntime(type);
 
   static Code parseRequest(Annotation annotation){
-    Map paramsMap =  annotation.paramMap;
+//    Map paramsMap =  annotation.paramMap;
     Map headers = annotation.headers;
     List<String> bodyList = annotation.body;
     List extras = annotation.extra;
@@ -121,11 +121,17 @@ class Writer{
     final blocks = <Code>[];
     MethodElement element = annotation.element;
     Map<String,ParameterElement> paths = annotation.paths;
-    Map fieldMap = annotation.fieldMap;
-    List<String> pendingFieldMap = annotation.pendingFieldMap;
+//    Map fieldMap = annotation.fieldMap;
+//    List<String> pendingFieldMap = annotation.pendingFieldMap;
+
+    List<AnnotationField> fields = annotation.fields;
+    List<AnnotationFieldMap> fieldMaps = annotation.fieldMaps;
+    List<AnnotationQuery> _query = annotation.query;
+    List<AnnotationQueryMap> _queryMap = annotation.queryMaps;
 
 
-    if((fieldMap?.length>0||pendingFieldMap?.length>0)&&bodyList?.length>0){
+    if((fields?.length>0
+        ||fieldMaps?.length>0)&&bodyList?.length>0){
       throw Exception("only be set one of @Field/@FieldMap and @Body  on request(${annotation.methodUrl})");
     }
 
@@ -160,18 +166,45 @@ class Writer{
 
    }
 
-   blocks.add(literalMap(paramsMap).assignVar("_params").statement);
+   Map queryMap = new Map();
+    _query.forEach((e){
+      if(e.isEncoded){
+        queryMap[e.urlName] = e.paramsName;
+      }else{
+        queryMap["\${Uri.encodeComponent(\"${e.urlName}\")}"] = e.paramsName;
+      }
+
+    });
+
+    Map fieldMap = new Map();
+     fields.forEach((e){
+      if(e.isEncoded){
+        fieldMap[e.urlName] = e.paramsName;
+      }else{
+        fieldMap[e.urlName] = "\${Uri.encodeComponent(\"${e.paramsName}\")}";
+      }
+    });
+
+   blocks.add(literalMap(queryMap).assignVar("_params").statement);
    blocks.add(literalMap(fieldMap).assignVar("_fieldMap").statement);
 
     if(!annotation.isFormUrlEncoded&&
-        (fieldMap.isNotEmpty||annotation.pendingFieldMap.isNotEmpty)){
+        (fieldMap.isNotEmpty||annotation.fieldMaps.isNotEmpty)){
       throw Exception("if want to use Field or FieldMap,please add @FormUrlEncoded on request(${annotation.methodUrl})");
     }
 
 
-    if(annotation.pendingParamsMap.length > 0){
-      annotation.pendingParamsMap.forEach((String s){
-        blocks.add(Code("_params.addAll($s);"));
+    if(annotation.queryMaps.length > 0){
+      print("annotation.queryMaps:${annotation.queryMaps.length}");
+      annotation.queryMaps.forEach((e){
+        if(e.isEncoded){
+          blocks.add(Code("_params.addAll(${e.paramsMap});"));
+        }else{
+          blocks.add(Code("${e.paramsMap}.forEach((name,value){\n ${e.paramsMap}[name] = Uri.encodeComponent(value);});"));
+          blocks.add(Code("_params.addAll(${e.paramsMap});"));
+        }
+
+        
       });
     }
 
@@ -214,13 +247,23 @@ class Writer{
     if(annotation.isFormUrlEncoded){
       contentType = formBodyContentType;
       blocks.add(Code("_data.addAll(_fieldMap);"));
-      if(pendingFieldMap.length > 0){
-        pendingFieldMap.forEach((fieldMap){
-          blocks.add(Code("_data.addAll(${fieldMap});"));
+      if(fieldMaps.length > 0){
+        fieldMaps.forEach((fieldMap){
+          if(fieldMap.isEncoded){
+            blocks.add(Code("_data.addAll(${fieldMap});"));
+          }else{
+            blocks.add(Code("${fieldMap.paramsMap}.forEach((name,value){\n ${fieldMap.paramsMap}[name] = Uri.encodeComponent(value);});"));
+            blocks.add(Code("_params.addAll(${fieldMap.paramsMap});"));
+          }
+
         });
       }
-      blocks.add(Code("_body = RequestBody.create(\"${contentType}\",-1);"));
-      blocks.add(Code("_body.extra = _data;"));
+      if(annotation.isFormUrlEncoded){
+        blocks.add(Code("_body =  RequestBody.createForm(-1);"));
+      }else{
+        blocks.add(Code("_body = RequestBody.create(\"${contentType}\",-1);"));
+      }
+      blocks.add(Code("_body.data = _data;"));
     }
 
 
@@ -343,14 +386,28 @@ class Writer{
       DartObject metadata =meta.computeConstantValue();
       if(metadata?.type?.name == "Query"){
         String query =metadata?.getField("name")?.toStringValue();
-        annotation.paramMap["$query"] = "\${${parameterElement.name}}";
+        AnnotationQuery _query = new AnnotationQuery();
+        _query.paramsName = "\${${parameterElement.name}}";
+        _query.urlName = "$query";
+        _query.isEncoded = metadata?.getField("encode")?.toBoolValue();
+        annotation.query.add(_query);
       }else if(metadata?.type?.name == "QueryMap"){
-        annotation.pendingParamsMap.add("${parameterElement.name}");
+        AnnotationQueryMap _query = new AnnotationQueryMap();
+        _query.paramsMap = "${parameterElement.name}";
+        _query.isEncoded = metadata?.getField("encode")?.toBoolValue();
+        annotation.queryMaps.add(_query);
       }else if(metadata.type.name == "Field"){
         String field = metadata?.getField("name")?.toStringValue();
-        annotation.fieldMap["$field"] = "\${${parameterElement.name}}";
+        AnnotationField _field = new AnnotationField();
+        _field.paramsName = "\${${parameterElement.name}}";
+        _field.urlName = "$field";
+        _field.isEncoded = metadata?.getField("encode")?.toBoolValue();
+        annotation.fields.add(_field);
       }else if(metadata.type.name == "FieldMap"){
-        annotation.pendingFieldMap.add("${parameterElement.name}");
+        AnnotationFieldMap _fieldMap = new AnnotationFieldMap();
+        _fieldMap.paramsMap = "${parameterElement.name}";
+        _fieldMap.isEncoded = metadata?.getField("encode")?.toBoolValue();
+        annotation.fieldMaps.add(_fieldMap);
       }else if(metadata.type.name == body){
         annotation.body.add("${parameterElement.name}");
       }else if(metadata.type.name == extra){

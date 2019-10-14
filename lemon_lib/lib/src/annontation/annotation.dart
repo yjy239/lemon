@@ -71,7 +71,6 @@ class Root{
 }
 
 class FormUrlEncoded{
-
   const FormUrlEncoded();
 }
 

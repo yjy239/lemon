@@ -59,7 +59,7 @@ class DefaultEngine implements Engine{
       options.maxRedirects ??= extra?.maxRedirects;
       options.requestEncoder ??= extra?.requestEncoder;
       options.responseDecoder ??= extra?.responseDecoder;
-      options.contentType ??= request.body().contentType();
+      options.contentType ??= request?.body()?.contentType();
       options.cancelToken ??=extra?.cancelToken;
     }
     Response<T> response = await dio?.request<T>(httpUrl?.build().toString(),

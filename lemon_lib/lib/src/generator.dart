@@ -24,17 +24,6 @@ class CodeGenerator extends GeneratorForAnnotation<Controller> {
     StringBuffer buffer = new StringBuffer();
     Writer.writeImport(buffer,buildStep,classElement);
 
-//
-//    Writer.writeBegin(buffer,classElement);
-//
-//    for(MethodElement method in classElement.methods){
-//
-//      Writer.writeMethod(buffer, method);
-//
-//    }
-//
-//    Writer.writeEnd(buffer);
-
     final classBuilder = new Class((c) {
       c
         ..name = Writer.getClassName(element)
@@ -54,3 +43,19 @@ class CodeGenerator extends GeneratorForAnnotation<Controller> {
 
 
 }
+
+class RequestGenerator extends GeneratorForAnnotation<Root> {
+
+
+  @override
+  dynamic generateForAnnotatedElement(
+      Element element, ConstantReader annotation, BuildStep buildStep) {
+    return null;
+  }
+}
+
+
+class ClassCollection{
+  String classes;
+}
+

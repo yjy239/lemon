@@ -21,7 +21,7 @@ class HttpSample{
   }
 
   @POST(url:"create_task")
-  Future<Response> setUserName(@Field("id")User name,@Body()Map body){
+  Future<Response> setUserName(@Body()Map body){
     return null;
   }
 }

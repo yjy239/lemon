@@ -1,5 +1,6 @@
 import 'package:lemon_lib/lemon.dart';
 
+
 void main(){
   HttpUrl url  = HttpUrl();
   print("\n${url.scheme("http").build()}\n");
@@ -8,6 +9,8 @@ void main(){
   url.queryParameters["aa"] = "bb";
   url.fragment("123");
   print("\n${url.build()}\n");
+
+  print("${Uri.encodeComponent("/:#\& +")}\n");
 
   HttpUrl u = HttpUrl.get("https://www.baidu.com/aaa");
 
