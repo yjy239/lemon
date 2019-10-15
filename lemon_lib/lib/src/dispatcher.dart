@@ -5,7 +5,10 @@ import 'package:lemon_lib/src/request.dart';
 
 import 'isolate_executor.dart';
 
-
+class Answer{
+  dynamic data;
+  int id;
+}
 
 //这个用来生成
 class AsyncCall extends Runnable{
@@ -36,13 +39,21 @@ class AsyncCall extends Runnable{
   @override
   dynamic onRun() async {
     // TODO: implement onRun
+
+    Answer answer = new Answer();
     if(execute != null){
       try{
-        return await execute(engine,request);
+        dynamic result = await execute(engine,request);
+        answer.data = result;
+        answer.id = request.id;
+        return answer;
       }catch(e,stack){
         print("exception:${e.toString()}");
         print("${stack}");
-        return e;
+        answer.data = e;
+        answer.id = request.id;
+        return answer;
+
       }
 
     }
@@ -53,14 +64,26 @@ class AsyncCall extends Runnable{
   @override
   void callback(data) {
     // TODO: implement callback
-    if(data is Exception){
+    if(data != null&&data is Answer){
+      dynamic result = data.data;
+      if(result is Exception){
+        if(error != null){
+          error(data.id,result);
+        }
+      }else{
+        if(response != null){
+          response(data.id,result);
+        }
+      }
+
+    }else if(data is Exception){
       if(error != null){
-        error(data);
+        error(-1,data);
       }
 
     } else {
       if(response != null){
-        response(data);
+        response(-1,data);
       }
     }
 

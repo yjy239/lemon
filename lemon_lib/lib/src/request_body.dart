@@ -93,6 +93,7 @@ class RequestBody<S> extends Stream<List<int>> implements RequestBodyCallback<S,
   String _contentType;
   int _contentLength;
   dynamic data;
+  dynamic extra;
 
   factory RequestBody.create(String contentType,int contentLength,
       {dynamic data}){

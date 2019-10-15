@@ -235,6 +235,7 @@ class Request{
    Headers _headers = new Headers();
    RequestBody _body;
    Extra extra;
+   int id;
 
 
    Request uri(HttpUrl url) {

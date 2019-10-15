@@ -66,8 +66,8 @@ class QueryMap{
   const QueryMap({this.encode = false});
 }
 
-class Root{
-  const Root();
+class ROOT{
+  const ROOT();
 }
 
 class FormUrlEncoded{

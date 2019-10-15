@@ -6,6 +6,11 @@ targets:
         enabled: true #可选，是否将构建器应用于此目标
         generate_for:
           exclude: ['**.lemon.dart']
+      lemon_lib|route_builder:
+        options: { 'write': true }
+        enabled: true #可选，是否将构建器应用于此目标
+        generate_for:
+          exclude: ['**.lemon.dart']
 
 builders:
   lemon_builder:
@@ -14,3 +19,12 @@ builders:
     build_extensions: {".dart": ['.lemon.dart']}
     auto_apply: root_package #将此Builder应用于包，直接依赖于公开构建起的包
     build_to: source #输出转到隐藏的构建缓存，不会发布
+    runs_before: ['lemon_lib|route_builder']
+
+  route_builder:
+    import: "package:lemon_lib/builder.dart"
+    builder_factories: ["mapGenerator"]
+    build_extensions: { '.dart': ['.lemon_invalid.dart'] }
+    auto_apply: root_package
+    build_to: source
+

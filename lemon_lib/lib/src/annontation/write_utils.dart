@@ -15,6 +15,7 @@ import 'package:source_gen/source_gen.dart';
 
 class Writer{
 
+  static const String  routerMap = "routerMap";
   static const String  clientName = "_client";
   static const String get = "GET";
   static const String post = "POST";
@@ -27,6 +28,7 @@ class Writer{
   static const String body = "Body";
   static const String path = "Path";
   static String formBodyContentType = "application/x-www-form-urlencoded";
+  static const String findInterface = "findInterface";
 
   static void writeBegin(StringBuffer buffer,ClassElement element){
      buffer.write(" class ${element.name}Impl implement ${element.name}{\n");
@@ -34,6 +36,44 @@ class Writer{
 
   static String getClassName(ClassElement element){
     return """${element.name}Impl""";
+  }
+
+  static Field getRouterMap(Map map) =>Field((builder) => builder
+      ..name = routerMap
+      ..assignment = literalMap(map).code
+  );
+
+  static Method FindRouterMethod(Map<String,String> map){
+    return new Method((builder)=>
+    builder..name = findInterface
+    ..returns = refer("T")
+      ..types.add(refer('T'))
+    ..requiredParameters = ListBuilder([
+      Parameter((p)=>
+      p..name = clientName
+      ..type = refer("LemonClient")),
+      Parameter((p)=>
+      p..name = "apiService"
+      ..type = refer("T"))
+    ])
+    ..body = getMap(map)
+    );
+  }
+
+  static Code getMap(Map<String,String> map){
+    List<Code> blocks = [];
+    blocks.add(Code("switch(apiService.runtimeType){"));
+
+    map.forEach((name,value){
+      blocks.add( Code("case ${name}:"));
+      blocks.add(Code("return new ${value}(${clientName}) as T;"));
+    });
+
+    blocks.add(Code("}"));
+    blocks.add(Code("return null;"));
+
+
+    return Block.of(blocks);
   }
 
 
@@ -195,7 +235,6 @@ class Writer{
 
 
     if(annotation.queryMaps.length > 0){
-      print("annotation.queryMaps:${annotation.queryMaps.length}");
       annotation.queryMaps.forEach((e){
         if(e.isEncoded){
           blocks.add(Code("_params.addAll(${e.paramsMap});"));
@@ -229,8 +268,9 @@ class Writer{
     blocks.add(Code("headers..forEach((name,value){\n request.addHeader(name, value);\n});"));
 
     //生成extra
-    blocks.add(Code("DefaultExtra defaultExtra = new DefaultExtra();"));
+
     if(extras.length == 1){
+      blocks.add(Code("DefaultExtra defaultExtra = new DefaultExtra();"));
       blocks.add(Code("if(${extras[0]} is Extra){\n"
           "request.extra = ${extras[0]};\n"
           "}else{\n"));
@@ -240,6 +280,8 @@ class Writer{
         });
       }
       blocks.add(Code("\n}"));
+
+      blocks.add(Code("request.extra = defaultExtra;"));
     }
 
     String contentType;
@@ -258,13 +300,16 @@ class Writer{
 
         });
       }
-      if(annotation.isFormUrlEncoded){
-        blocks.add(Code("_body =  RequestBody.createForm(-1);"));
-      }else{
-        blocks.add(Code("_body = RequestBody.create(\"${contentType}\",-1);"));
-      }
-      blocks.add(Code("_body.data = _data;"));
     }
+
+    if(annotation.isFormUrlEncoded){
+      blocks.add(Code("_body =  RequestBody.createForm(-1);"));
+    }else{
+      blocks.add(Code("_body = RequestBody.create(\"${contentType == null?"":contentType}\",-1);"));
+    }
+    blocks.add(Code("_body.data = _data;"));
+
+
 
 
     if(method == get){
@@ -311,14 +356,23 @@ class Writer{
       buffer.write("import '${buildStep.inputId.path}';\n");
     }
 
-    List<ImportElement>  imports = classElement.library.imports;
-    for(ImportElement e in imports){
-      buffer.write("import '${e.uri}';\n");
-    }
+    List<ImportElement> imports = classElement.library.imports;
+    imports.forEach((i){
+      buffer.write("import '${i.uri}';\n");
+    });
+
 
     buffer.write("import 'package:lemon_lib/lemon.dart';\n");
 
   }
+
+  static void writeCollectImport(StringBuffer buffer,List<String> importLists) {
+    buffer.write("import 'package:lemon_lib/lemon.dart';\n");
+    importLists?.forEach((import) {
+      buffer.write(import);
+    });
+  }
+
 
   static void writeMethod(StringBuffer buffer,MethodElement element){
     if(element == null){

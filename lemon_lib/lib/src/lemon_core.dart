@@ -1,18 +1,17 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:lemon_lib/src/dispatcher.dart';
-import 'package:lemon_lib/src/isolate_executor.dart';
 import 'package:lemon_lib/src/request.dart';
 
 import 'engine.dart';
+import 'isolate_executor.dart';
 
 /**
  * isolate Pool 一个异步池子
  */
 
-typedef OnResponse<T> =  void Function(T object);
-typedef OnError<T> = void Function(Exception e);
+typedef OnResponse<T> =  void Function(int id,T object);
+typedef OnError<T> = void Function(int id,Exception e);
 typedef OnExecute<T> = dynamic Function(Engine engine,Request request);
 typedef OnEnd<T> = dynamic Function(AsyncCall call);
 
@@ -99,7 +98,8 @@ class Call{
   OnResponse response;
   OnError error;
   static LemonClient lemonClient;
-  static Completer completer;
+
+  static CompleterRecord record = CompleterRecord();
 
   Request request;
 
@@ -114,9 +114,13 @@ class Call{
   }
 
   Future<T> enqueueFuture<T>(){
-    completer = new Completer<T>();
+    Completer completer = new Completer<T>();
+    request.id = completer.hashCode;
+    record.completerMap[completer.hashCode] = completer;
+
     lemonClient.dispatcher.enqueue(new AsyncCall(lemonClient?.engine,
         request,innerExecute,innerResponse,innerError,onEnd));
+
     return completer.future as Future<T>;
 
   }
@@ -125,17 +129,18 @@ class Call{
     return await engine.request(request);
   }
 
-  static void innerResponse(dynamic data){
-    completer?.complete(data);
+  static void innerResponse(int id,dynamic data){
+    record.completerMap[id]?.complete(data);
+    record.completerMap.remove(id);
   }
 
-  static void innerError(Exception e){
-    completer?.completeError(e);
+  static void innerError(int id,Exception e){
+    record.completerMap[id]?.completeError(e);
+    record.completerMap.remove(id);
   }
 
   static void dispose(){
     lemonClient = null;
-    completer = null;
   }
 
   static void onEnd(AsyncCall call){

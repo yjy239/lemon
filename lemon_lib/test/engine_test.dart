@@ -45,7 +45,9 @@ void main() async {
 }
 
 class TestFactory extends InterfaceFactory{
-  T findInterface<T>(LemonClient client,T apiService){
+  T findInterface<T>(LemonClient client,Object apiService){
+
+    print("apiService:${apiService.runtimeType}");
     if(apiService is Test){
       return new TestImpl(client) as T;
     }
@@ -96,11 +98,11 @@ class TestImpl implements Test{
     return await engine.request(request);
   }
 
-  static response(dynamic data){
+  static response(int id,dynamic data){
     print("${data}");
   }
 
-  static error(Exception e){
+  static error(int id,Exception e){
     print(e);
   }
 

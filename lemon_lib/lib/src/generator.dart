@@ -8,12 +8,14 @@ import 'package:code_builder/code_builder.dart';
 import 'package:dart_style/dart_style.dart';
 import 'package:built_collection/src/list.dart';
 
+final ClassCollection classCollection = new ClassCollection();
 
 class CodeGenerator extends GeneratorForAnnotation<Controller> {
   @override
   generateForAnnotatedElement(Element element, ConstantReader annotation,
       BuildStep buildStep) {
 
+    print("CodeGenerator");
 
     if(element.kind != ElementKind.CLASS){
       return null;
@@ -36,7 +38,7 @@ class CodeGenerator extends GeneratorForAnnotation<Controller> {
         ..implements = ListBuilder([refer(classElement.name)]);
     });
 
-
+    classCollection.collect(classElement, annotation, buildStep);
     final emitter = new DartEmitter();
     return new DartFormatter().format('${buffer.toString()}\n ${classBuilder.accept(emitter)}');
   }
@@ -44,18 +46,52 @@ class CodeGenerator extends GeneratorForAnnotation<Controller> {
 
 }
 
-class RequestGenerator extends GeneratorForAnnotation<Root> {
+class RequestMapGenerator extends GeneratorForAnnotation<ROOT> {
 
 
   @override
-  dynamic generateForAnnotatedElement(
+  generateForAnnotatedElement(
       Element element, ConstantReader annotation, BuildStep buildStep) {
-    return null;
+    if(element.kind != ElementKind.CLASS){
+      return null;
+    }
+
+    StringBuffer buffer = new StringBuffer();
+    Writer.writeCollectImport(buffer, classCollection?.importList);
+
+    final classBuilder = new Class((c) {
+      c
+        ..name = "InterfaceFactoryImpl"
+        ..methods.add(Writer.FindRouterMethod(classCollection.routerMap))
+        ..types
+        ..implements = ListBuilder([refer("InterfaceFactory")]);
+    });
+
+    final emitter = new DartEmitter();
+    return new DartFormatter().format('${buffer.toString()}\n ${classBuilder.accept(emitter)}');
   }
 }
 
 
 class ClassCollection{
-  String classes;
+  Map<String, String> routerMap =
+  <String, String>{};
+  List<String> importList = <String>[];
+
+  void collect(ClassElement element, ConstantReader annotation, BuildStep buildStep){
+    if (buildStep.inputId.path.contains('lib/')) {
+      importList.add(
+          "import 'package:${buildStep.inputId.package}/${buildStep.inputId.path.replaceFirst('lib/', '')}';\n");
+      importList.add(
+          "import 'package:${buildStep.inputId.package}/${buildStep.inputId.path.replaceFirst('lib/', '').replaceFirst(".dart", ".lemon.dart")}';\n");
+    } else {
+      importList.add("import '${buildStep.inputId.path}';\n");
+      importList.add(
+          "import 'package:${buildStep.inputId.path.replaceFirst(".dart", ".lemon.dart")}';\n");
+    }
+
+    //加载到路由表中
+    routerMap["${element.name}"] = "${Writer.getClassName(element)}";
+  }
 }
 

@@ -63,7 +63,7 @@ class DefaultEngine implements Engine{
       options.cancelToken ??=extra?.cancelToken;
     }
     Response<T> response = await dio?.request<T>(httpUrl?.build().toString(),
-      data : request?.body().data,queryParameters: httpUrl?.queryParameters,
+      data : request?.body()?.data,queryParameters: httpUrl?.queryParameters,
         cancelToken: extra?.cancelToken,
       onSendProgress: onSend,onReceiveProgress:onReceive,
       options: options) ;

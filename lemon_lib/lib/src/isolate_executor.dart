@@ -1,6 +1,6 @@
 
 import 'dart:collection';
-
+import 'dart:async';
 import 'dart:isolate';
 
 class Pools<P>{
@@ -255,6 +255,20 @@ class IsolateExecutor{
 
      cleanUp();
     });
+
+}
+
+
+class CompleterRecord{
+  static CompleterRecord record;
+  Map<int,Completer> completerMap = new Map();
+  factory (){
+    if(record == null){
+      return new CompleterRecord();
+    }
+
+    return record;
+  }
 
 }
 
