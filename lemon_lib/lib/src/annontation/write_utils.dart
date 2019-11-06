@@ -30,6 +30,8 @@ class Writer{
   static String formBodyContentType = "application/x-www-form-urlencoded";
   static const String findInterface = "findInterface";
 
+  static const String formUrlEncoded ="FormUrlEncoded";
+
   static void writeBegin(StringBuffer buffer,ClassElement element){
      buffer.write(" class ${element.name}Impl implement ${element.name}{\n");
   }
@@ -167,7 +169,8 @@ class Writer{
     List<AnnotationField> fields = annotation.fields;
     List<AnnotationFieldMap> fieldMaps = annotation.fieldMaps;
     List<AnnotationQuery> _query = annotation.query;
-    List<AnnotationQueryMap> _queryMap = annotation.queryMaps;
+    List<AnnotationMultiPart> multipartList = annotation.multiParts;
+
 
 
     if((fields?.length>0
@@ -194,10 +197,7 @@ class Writer{
    if(bodyList.length > 1){
      throw Exception("body is only set once on request(${annotation.methodUrl})");
    }else if(bodyList.length == 1){
-
      ParameterElement parameterElement = annotation.paramsElements[bodyList[0]];
-
-
      if(parameterElement.type.name == "Map"){
        blocks.add(Code("_data.addAll( ${bodyList[0]});"));
      }else{
@@ -285,28 +285,43 @@ class Writer{
     }
 
     String contentType;
-    blocks.add(Code("RequestBody _body;"));
-    if(annotation.isFormUrlEncoded){
-      contentType = formBodyContentType;
-      blocks.add(Code("_data.addAll(_fieldMap);"));
-      if(fieldMaps.length > 0){
-        fieldMaps.forEach((fieldMap){
-          if(fieldMap.isEncoded){
-            blocks.add(Code("_data.addAll(${fieldMap});"));
-          }else{
-            blocks.add(Code("${fieldMap.paramsMap}.forEach((name,value){\n ${fieldMap.paramsMap}[name] = Uri.encodeComponent(value);});"));
-            blocks.add(Code("_params.addAll(${fieldMap.paramsMap});"));
-          }
 
-        });
+    if(multipartList.length>0){
+      if(method != post){
+        throw Exception("MultiPart must be post");
       }
+      blocks.add(Code("MultiPartBody _body;"));
+      blocks.add(Code("_body =  RequestBody.createMultiPart(-1,MultiPartBody.multiPartBodyContentType);"));
+      multipartList.forEach((value){
+        blocks.add(Code("_body.addPart(\"${value.name}\",${value.fieldName});"));
+      });
+    }else{
+      blocks.add(Code("RequestBody _body;"));
+      if(annotation.isFormUrlEncoded){
+        contentType = formBodyContentType;
+        blocks.add(Code("_data.addAll(_fieldMap);"));
+        if(fieldMaps.length > 0){
+          fieldMaps.forEach((fieldMap){
+            if(fieldMap.isEncoded){
+              blocks.add(Code("_data.addAll(${fieldMap});"));
+            }else{
+              blocks.add(Code("${fieldMap.paramsMap}.forEach((name,value){\n ${fieldMap.paramsMap}[name] = Uri.encodeComponent(value);});"));
+              blocks.add(Code("_params.addAll(${fieldMap.paramsMap});"));
+            }
+
+          });
+        }
+      }
+
+      if(annotation.isFormUrlEncoded){
+        blocks.add(Code("_body =  RequestBody.createForm(-1);"));
+      }else{
+        blocks.add(Code("_body = RequestBody.create(\"${contentType == null?"":contentType}\",-1);"));
+      }
+
     }
 
-    if(annotation.isFormUrlEncoded){
-      blocks.add(Code("_body =  RequestBody.createForm(-1);"));
-    }else{
-      blocks.add(Code("_body = RequestBody.create(\"${contentType == null?"":contentType}\",-1);"));
-    }
+
     blocks.add(Code("_body.data = _data;"));
 
 
@@ -416,16 +431,16 @@ class Writer{
       List<ElementAnnotation> methodMetas){
     for(ElementAnnotation meta in methodMetas){
       DartObject metadata = meta.computeConstantValue();
-      if(metadata?.type?.name == "POST"
-          ||metadata?.type?.name == "PUT"
-          ||metadata?.type?.name == "DELETE"
-          ||metadata?.type?.name == "HEAD"
-          ||metadata?.type?.name == "GET"){
+      if(metadata?.type?.name == post
+          ||metadata?.type?.name == put
+          ||metadata?.type?.name == delete
+          ||metadata?.type?.name == head
+          ||metadata?.type?.name == get){
         annotation.method = metadata?.type?.name;
         annotation.methodUrl = metadata?.getField("url")?.toStringValue();
-      }else if(metadata?.type?.name == "Headers"){
+      }else if(metadata?.type?.name == headers){
         annotation.headers.addAll(metadata?.getField("map")?.toMapValue());
-      }else if(metadata?.type?.name == "FormUrlEncoded"){
+      }else if(metadata?.type?.name == formUrlEncoded){
         annotation.isFormUrlEncoded = true;
       }
     }
@@ -469,6 +484,11 @@ class Writer{
       }else if(metadata.type.name == path){
         String path = metadata?.getField("url")?.toStringValue();
         annotation.paths[path] = parameterElement;
+      }else if(metadata.type.name == "Multipart"){
+        AnnotationMultiPart part = new AnnotationMultiPart();
+        part.name = metadata?.getField("name")?.toStringValue();
+        part.fieldName = "${parameterElement.name}";
+        annotation.multiParts.add(part);
       }
 
     }

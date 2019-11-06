@@ -14,6 +14,7 @@ class Annotation{
   List<String> extra = new List();
   Map<String,ParameterElement> paths = new Map();
   bool isFormUrlEncoded = false;
+  List<AnnotationMultiPart> multiParts = new List();
 
   List<AnnotationField> fields = new List();
   List<AnnotationQuery> query = new List();
@@ -42,4 +43,9 @@ class AnnotationFieldMap{
 class AnnotationQueryMap{
   String paramsMap;
   bool isEncoded;
+}
+
+class AnnotationMultiPart{
+  String name;
+  String fieldName;
 }

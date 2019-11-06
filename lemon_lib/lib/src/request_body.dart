@@ -36,12 +36,52 @@ class FormBody extends RequestBody<Map<String,String>>{
   }
 }
 
+class MultiPartBody extends RequestBody<Map<String,String>>{
+  static String multiPartBodyContentType = "multipart/form-data";
+
+  Map<String,dynamic> parts = new Map();
+
+  MultiPartBody(Stream source,String type,int _contentLength,{ dynamic data})
+      :super(source,_contentLength,type == null?multiPartBodyContentType:type,data:data);
+
+
+  void addPart(String name,dynamic body){
+    parts[name] = body;
+  }
+
+  @override
+  void onData(Map<String,String> data, EventSink<List<int>> sink) {
+    // TODO: implement onData
+    super.onData(data, sink);
+    //todo; wait to finish
+  }
+
+
+}
+
 
 class FormBodyTransformer extends RequestBodyTransformer<Map<String,String>>{
   FormBodyTransformer(int contentLength,{Map<String,String> data}):
         super(contentLength,null,data:data);
+
+  @override
+  Stream<List<int>> bind(Stream<Map<String, String>> stream) {
+    // TODO: implement bind
+    return new FormBody(stream,contentLength(),data: data);
+  }
 }
 
+
+class MultiPartTransformer extends RequestBodyTransformer<Map<String,String>>{
+  MultiPartTransformer(int contentLength,String type,{Map<String,String> data}):
+        super(contentLength,type,data:data);
+
+  @override
+  Stream<List<int>> bind(Stream<Map<String, String>> stream) {
+    // TODO: implement bind
+    return new MultiPartBody(stream,contentType().toString(),contentLength(),data: data);
+  }
+}
 
 
 class RequestBodyTransformer<S>  implements StreamTransformer<S, List<int>>{
@@ -105,6 +145,12 @@ class RequestBody<S> extends Stream<List<int>> implements RequestBodyCallback<S,
       {dynamic data}){
     StreamController<Map<String,String>> controller = new StreamController();
     return controller.stream.transform(FormBodyTransformer(contentLength,data: data));
+  }
+
+  factory RequestBody.createMultiPart(int contentLength,String type,
+      {dynamic data}){
+    StreamController<Map<String,String>> controller = new StreamController();
+    return controller.stream.transform(MultiPartTransformer(contentLength,type,data: data));
   }
 
 

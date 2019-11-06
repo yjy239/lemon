@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:lemon_lib/lemon.dart';
 import 'dart:core';
 import 'package:dio/dio.dart';
@@ -24,4 +26,10 @@ class HttpSample{
   Future<Response> setUserName(@Body()Map body){
     return null;
   }
+
+  @POST(url:"send_file")
+  Future<Response> sendFile(@Multipart("file1") File file1,@Multipart("file2") File file2){
+    return null;
+  }
+
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:lemon_lib/src/dispatcher.dart';
 import 'package:lemon_lib/src/request.dart';
 
+import 'default_engine.dart';
 import 'engine.dart';
 import 'isolate_executor.dart';
 
@@ -18,7 +19,7 @@ typedef OnEnd<T> = dynamic Function(AsyncCall call);
 class LemonBuilder{
 
   InterfaceFactory _mInterfaceFactory;
-  EngineFactory _mEngineFactory;
+  EngineFactory _mEngineFactory = new DefaultEngineFactory();
   int _maxPoolSize = 5;
   Duration _keepAliveTime = Duration(seconds: 15);
   int _maxRequestTimes = 64;
@@ -83,12 +84,9 @@ abstract class Lemon{
     maxRequestTimes: maxRequestTimes,baseUrl:baseUrl);
   }
 
-
   get engine;
 
   get baseUrl;
-
-
 
 
   T create<T>(T interface);

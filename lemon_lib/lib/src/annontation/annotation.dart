@@ -74,6 +74,12 @@ class FormUrlEncoded{
   const FormUrlEncoded();
 }
 
+
+class Multipart{
+  final String name;
+  const Multipart(this.name);
+}
+
 class EXTRA{
   const EXTRA();
 }

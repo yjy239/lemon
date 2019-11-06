@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:lemon_lib/src/request.dart';
+import 'package:lemon_lib/src/request_body.dart';
 
 import 'engine.dart';
 
@@ -62,11 +63,25 @@ class DefaultEngine implements Engine{
       options.contentType ??= request?.body()?.contentType();
       options.cancelToken ??=extra?.cancelToken;
     }
-    Response<T> response = await dio?.request<T>(httpUrl?.build().toString(),
-      data : request?.body()?.data,queryParameters: httpUrl?.queryParameters,
-        cancelToken: extra?.cancelToken,
-      onSendProgress: onSend,onReceiveProgress:onReceive,
-      options: options) ;
+
+    Response<T> response;
+    if(request.body() is MultiPartBody){
+      Map map = new Map();
+      MultiPartBody multiBody = request.body() as MultiPartBody;
+      FormData.fromMap(map);
+      response = await dio?.request<T>(httpUrl?.build().toString(),
+          data : multiBody,queryParameters: httpUrl?.queryParameters,
+          cancelToken: extra?.cancelToken,
+          onSendProgress: onSend,onReceiveProgress:onReceive,
+          options: options) ;
+    }else{
+      response = await dio?.request<T>(httpUrl?.build().toString(),
+          data : request?.body()?.data,queryParameters: httpUrl?.queryParameters,
+          cancelToken: extra?.cancelToken,
+          onSendProgress: onSend,onReceiveProgress:onReceive,
+          options: options) ;
+    }
+
     response.request.onSendProgress = onSend;
     response.request.onReceiveProgress = onReceive;
     response?.request?.requestEncoder = requestEncoder;
